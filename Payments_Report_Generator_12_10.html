@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pearly — Payments Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   BASE RESET & TYPOGRAPHY
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #FFFFFF; font-family: 'Inter', sans-serif; color: #1E2D4A; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #F1F5F9; }
+::-webkit-scrollbar-thumb { background: #C2D7FF; border-radius: 3px; }
+
+/* ============================================================
+   TABS
+   ============================================================ */
+.tabs button {
+  background: transparent; border: 1px solid transparent; color: #64748B;
+  border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .15s; font-family: 'Inter', sans-serif;
+}
+.tabs button.active { background: rgba(0,65,192,.08); border-color: rgba(0,65,192,.25); color: #0041C0; }
+.tabs button:hover:not(.active) { color: #335EEA; }
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.cards { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 28px; }
+.card {
+  background: #EFF4FF; border: 1px solid #D6E4FF; border-radius: 12px;
+  padding: 24px 20px; flex: 1; min-width: 200px;
+}
+.card.accent { border-color: #8EA9FF; border-left: 4px solid #0041C0; }
+.card-label {
+  color: #64748B; font-size: 12px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; margin-bottom: 8px;
+}
+.card-value {
+  font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -.02em; color: #0041C0;
+}
+.card.accent .card-value { color: #0041C0; }
+.card-sub { color: #64748B; font-size: 12px; margin-top: 4px; }
+
+/* MoM delta badges */
+.card-delta { font-size: 12px; font-weight: 600; margin-top: 2px; display: inline-flex; align-items: center; gap: 3px; }
+.card-delta.up { color: #42BA96; }
+.card-delta.down { color: #DC2626; }
+.card-delta.flat { color: #64748B; }
+
+.sparkline-wrap { height: 32px; margin-top: 6px; }
+
+.period-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+.period-pills button {
+  background: transparent; border: 1px solid transparent; color: #64748B;
+  border-radius: 8px; padding: 5px 12px; font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .15s; font-family: 'Inter', sans-serif;
+}
+.period-pills button.active { background: rgba(0,65,192,.08); border-color: rgba(0,65,192,.25); color: #0041C0; }
+.period-pills button:hover:not(.active) { color: #335EEA; }
+
+/* ============================================================
+   SECTIONS & TABLES
+   ============================================================ */
+.section { background: #EFF4FF; border: 1px solid #D6E4FF; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+.section h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; color: #0041C0; }
+.section .sub { color: #64748B; font-size: 13px; margin-bottom: 16px; }
+
+.row { display: flex; gap: 20px; margin-bottom: 24px; flex-wrap: wrap; }
+.row > .section { margin-bottom: 0; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; border-spacing: 0; }
+th {
+  text-align: right; padding: 10px 12px; color: #64748B; font-weight: 600;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+  border-bottom: 2px solid #D6E4FF;
+}
+th:first-child { text-align: left; }
+td { padding: 10px 12px; text-align: right; border-bottom: 1px solid #E8EEFF; color: #1E2D4A; }
+td:first-child { text-align: left; }
+
+.mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+.green { color: #42BA96; }
+.red { color: #DC2626; }
+.purple { color: #335EEA; }
+.dim { color: #64748B; }
+.bold { font-weight: 700; }
+.total-row td { border-top: 2px solid #D6E4FF; border-bottom: none; padding: 12px; font-weight: 700; color: #0041C0; }
+canvas { max-width: 100%; }
+
+/* ============================================================
+   FUNNEL
+   ============================================================ */
+.funnel-step {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; flex: 1; min-width: 100px;
+}
+.funnel-step .funnel-value { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #0041C0; }
+.funnel-step .funnel-count { font-size: 13px; color: #64748B; font-weight: 600; margin-top: 2px; }
+.funnel-step .funnel-pct {
+  font-size: 12px; color: #335EEA; font-weight: 700; margin-top: 4px;
+  background: rgba(0,65,192,.06); padding: 2px 8px; border-radius: 6px;
+}
+.funnel-connector { display: flex; align-items: center; color: #C2D7FF; font-size: 20px; padding: 0 4px; }
+
+/* ============================================================
+   ROI CALCULATOR
+   ============================================================ */
+.roi-input-wrap {
+  display: inline-flex; align-items: center; background: #fff;
+  border: 1.5px solid #C2D7FF; border-radius: 8px; padding: 2px 4px 2px 8px;
+  gap: 2px; transition: border-color .2s;
+}
+.roi-input-wrap:focus-within { border-color: #0041C0; box-shadow: 0 0 0 3px rgba(0,65,192,.08); }
+.roi-input-wrap span { color: #64748B; font-size: 14px; font-weight: 600; }
+.roi-input {
+  border: none; outline: none; width: 90px;
+  font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600;
+  color: #0041C0; background: transparent; padding: 6px 4px;
+}
+.roi-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.roi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 16px; }
+.roi-card { background: #fff; border: 1px solid #D6E4FF; border-radius: 10px; padding: 16px; text-align: center; }
+.roi-card .card-label { color: #64748B; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 6px; }
+.roi-card .card-value { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: #0041C0; }
+.roi-card .card-value.green { color: #42BA96; }
+.roi-card .card-value.red { color: #DC2626; }
+.roi-card .card-sub { color: #64748B; font-size: 11px; margin-top: 4px; }
+
+/* ============================================================
+   MISC UI
+   ============================================================ */
+.hidden { display: none; }
+.click-hint { color: #8EA9FF; font-size: 11px; text-align: center; margin-top: 8px; font-style: italic; }
+
+/* Legacy funnel/legend classes (unused but kept for safety) */
+.funnel { display: flex; gap: 20px; align-items: center; justify-content: center; padding: 20px 0; flex-wrap: wrap; }
+.funnel-item { text-align: center; }
+.funnel-label { color: #64748B; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
+.funnel-value { font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+.funnel-sub { color: #64748B; font-size: 12px; margin-top: 4px; }
+.funnel-arrow { color: #C2D7FF; font-size: 28px; padding: 0 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 12px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+.legend-val { color: #1E2D4A; font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.legend-label { color: #64748B; }
+
+/* ============================================================
+   MODAL (drill-down)
+   ============================================================ */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,41,120,.3); z-index: 1000;
+  align-items: center; justify-content: center; backdrop-filter: blur(4px);
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: #fff; border: 1px solid #D6E4FF; border-radius: 16px; padding: 28px;
+  max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto;
+  position: relative; box-shadow: 0 24px 48px rgba(0,41,120,.15);
+}
+.modal-close {
+  position: absolute; top: 16px; right: 16px; background: none;
+  border: 1px solid #D6E4FF; color: #64748B; width: 32px; height: 32px;
+  border-radius: 8px; cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center; font-family: 'Inter', sans-serif;
+}
+.modal-close:hover { background: #EFF4FF; color: #0041C0; }
+.modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 4px; color: #0041C0; }
+.modal .sub { color: #64748B; font-size: 13px; margin-bottom: 16px; }
+
+/* ============================================================
+   UPLOAD SCREEN
+   ============================================================ */
+#uploadScreen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 40px; }
+.upload-box {
+  background: #EFF4FF; border: 2px dashed #C2D7FF; border-radius: 16px;
+  padding: 60px 40px; text-align: center; max-width: 500px; width: 100%;
+  cursor: pointer; transition: all .2s;
+}
+.upload-box:hover, .upload-box.dragover { border-color: #0041C0; background: #E3EDFF; }
+.upload-box h2 { font-size: 20px; margin-bottom: 8px; color: #0041C0; }
+.upload-box p { color: #64748B; font-size: 14px; margin-bottom: 20px; }
+.upload-btn {
+  background: #0041C0; color: #fff; border: none; padding: 12px 28px;
+  border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+.upload-btn:hover { background: #002E8A; }
+#uploadStatus { margin-top: 16px; color: #64748B; font-size: 13px; }
+.spinner {
+  display: inline-block; width: 18px; height: 18px;
+  border: 2px solid #D6E4FF; border-top-color: #0041C0; border-radius: 50%;
+  animation: spin .6s linear infinite; margin-right: 8px; vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#dashboard { display: none; }
+#newFileBtn {
+  background: rgba(0,65,192,.08); border: 1px solid rgba(0,65,192,.25);
+  color: #0041C0; padding: 6px 14px; border-radius: 8px; font-size: 12px;
+  font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; margin-left: auto;
+}
+#newFileBtn:hover { background: rgba(0,65,192,.15); }
+
+/* ============================================================
+   PRINT STYLES
+   ============================================================ */
+@media print {
+  body { background: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  #uploadScreen, .modal-overlay { display: none !important; }
+  .period-pills { display: none !important; }
+  .section, .card, .cards { break-inside: avoid; }
+  .click-hint { display: none; }
+  @page { margin: 0.3in; size: letter; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     DRILL-DOWN MODAL
+     ============================================================ -->
+<div class="modal-overlay" id="drillModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeDrill()">✕</button>
+    <h3 id="drillTitle"></h3>
+    <p class="sub" id="drillSub"></p>
+    <div id="drillContent"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     UPLOAD SCREEN
+     ============================================================ -->
+<div id="uploadScreen">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:20px;margin-bottom:32px">
+    <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAFpA9MDASIAAhEBAxEB/8QAHAABAAIDAQEBAAAAAAAAAAAAAAYIBAUHAgMB/8QAVxAAAgEDAgEGBQoRDAICAgMAAAECAwQFBhEhBxIxQVFhCBMicYEUMjdyc5GhsbPRFRcjMzQ2QkNWdIKEkpS00uEWGCQ1UlNUVWKTosGywmPTJSZEw/H/xAAbAQEAAgMBAQAAAAAAAAAAAAAABQYDBAcCAf/EAEERAAIBAgIECQoEBQUBAQAAAAABAgMEBREGEiExE0FRYXGBobHBFSIyMzRScpHR4RQWU/A1QpKisiNigtLi8ST/2gAMAwEAAhEDEQA/ALlgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" alt="Pearly" style="height:52px">
+    <div style="text-align:center">
+      <h1 style="font-size:24px;font-weight:700;color:#0041C0">Payments Report Generator</h1>
+      <span style="color:#64748B;font-size:13px">Upload an Excel payments report to generate your dashboard</span>
+    </div>
+  </div>
+  <div class="upload-box" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <h2>Drop your file here</h2>
+    <p>or click to browse — accepts .xlsx payments reports</p>
+    <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('fileInput').click()">Choose File</button>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+  </div>
+  <div id="uploadStatus"></div>
+</div>
+
+<!-- ============================================================
+     DASHBOARD (shown after file upload)
+     ============================================================ -->
+<div id="dashboard">
+  <div id="header" style="background:#FFFFFF;border-bottom:2px solid #D6E4FF;padding:28px 32px 20px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px">
+      <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAFpA9MDASIAAhEBAxEB/8QAHAABAAIDAQEBAAAAAAAAAAAAAAYIBAUHAgMB/8QAVxAAAgEDAgEGBQoRDAICAgMAAAECAwQFBhEhBxIxQVFhCBMicYEUMjdyc5GhsbPRFRcjMzQ2QkNWdIKEkpS00uEWGCQ1UlNUVWKTosGywmPTJSZEw/H/xAAbAQEAAgMBAQAAAAAAAAAAAAAABQYDBAcCAf/EAEERAAIBAgIECQoEBQUBAQAAAAABAgMEBREGEiExE0FRYXGBobHBFSIyMzRScpHR4RQWU/A1QpKisiNigtLi8ST/2gAMAwEAAhEDEQA/ALlgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" alt="Pearly" style="height:36px">
+      <div style="width:1px;height:28px;background:#D6E4FF;margin:0 4px"></div>
+      <div style="flex:1">
+        <h1 style="font-size:20px;font-weight:700;letter-spacing:-.02em;color:#0041C0" id="reportTitle">Payments Report</h1>
+        <span style="color:#64748B;font-size:13px" id="reportSubtitle"></span>
+      </div>
+      <button id="anonBtn" onclick="toggleAnonymize()" style="background:rgba(0,65,192,.08);border:1px solid rgba(0,65,192,.25);color:#0041C0;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif">🔒 Anonymize</button>
+      <button id="newFileBtn" onclick="location.reload()">↑ Upload New File</button>
+    </div>
+  </div>
+  <div style="padding:24px 32px 48px;max-width:1200px;margin:0 auto">
+    <div id="tab-overview"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     EXTERNAL LIBRARIES
+     ============================================================ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<script>
+/* ================================================================
+   PEARLY PAYMENTS REPORT GENERATOR — v11 (Refactored)
+   ================================================================
+   Sections:
+     1. Global state & formatting helpers
+     2. File upload handlers
+     3. Excel parsing
+     4. Data utilities (groupBy, sumBy, topN)
+     5. UI helpers (tabs, drill-down modal, chart factory)
+     6. Dashboard builder — data computation
+     7. Dashboard builder — Overview tab HTML
+     8. Dashboard builder — Overview tab tables
+     9. Dashboard builder — Overview tab charts
+    10. Dashboard builder — AR Status tab
+    11. ROI calculator
+    12. PDF download
+   ================================================================ */
+
+/* ================================================================
+   1. GLOBAL STATE & FORMATTING HELPERS
+   ================================================================ */
+var charts = [];
+var D = {};
+var _anonymized = false;
+var _officeMap = {};
+var _originalGroupName = '';
+var _periodMonths = 0; // 0 = all time
+var _roiCostValue = 0; // persists across rebuilds
+
+/** Set period filter and rebuild */
+function setPeriod(n) {
+  _periodMonths = n;
+  var inp = document.getElementById('roiCostInput');
+  if (inp) _roiCostValue = parseFloat(inp.value) || 0;
+  document.querySelectorAll('.period-pills button').forEach(function(b) {
+    b.classList.toggle('active', parseInt(b.getAttribute('data-months')) === n);
+  });
+  if (window._lastData) buildDashboard(window._lastData);
+}
+
+/** Render a tiny sparkline Chart.js chart */
+function makeSparkline(id, data, color) {
+  var el = document.getElementById(id);
+  if (!el || data.length < 2) return;
+  var c = new Chart(el, {
+    type: 'line',
+    data: {
+      labels: data.map(function(_, i) { return i; }),
+      datasets: [{
+        data: data,
+        borderColor: color || '#0041C0',
+        backgroundColor: 'transparent',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.35
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { display: false }, y: { display: false } },
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      animation: false
+    }
+  });
+  charts.push(c);
+}
+
+/** Toggle anonymize mode and rebuild dashboard */
+function toggleAnonymize() {
+  _anonymized = !_anonymized;
+  _officeMap = {};
+  var inp = document.getElementById('roiCostInput');
+  if (inp) _roiCostValue = parseFloat(inp.value) || 0;
+  var btn = document.getElementById('anonBtn');
+  btn.textContent = _anonymized ? '🔓 De-Anonymize' : '🔒 Anonymize';
+  btn.style.background = _anonymized ? 'rgba(66,186,150,.12)' : 'rgba(0,65,192,.08)';
+  btn.style.borderColor = _anonymized ? 'rgba(66,186,150,.4)' : 'rgba(0,65,192,.25)';
+  btn.style.color = _anonymized ? '#2a9d6f' : '#0041C0';
+  if (window._lastData) buildDashboard(window._lastData);
+}
+
+/** Return display name for an office (anonymized or real) */
+function officeName(name) {
+  if (!_anonymized) return name;
+  if (!_officeMap[name]) {
+    _officeMap[name] = 'Location ' + (Object.keys(_officeMap).length + 1);
+  }
+  return _officeMap[name];
+}
+
+/** Return display name for the group (anonymized or real) */
+function groupDisplayName(name) {
+  if (!_anonymized) return name;
+  return 'Organization';
+}
+
+/** Format number as USD currency */
+function fmt(v) {
+  return '$' + Number(v).toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
+}
+
+/** Format number as compact USD (K/M) for chart axes */
+function fmtK(v) {
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+  return '$' + v.toFixed(0);
+}
+
+/** Format number with locale separators */
+function fmtN(v) {
+  return Number(v).toLocaleString();
+}
+
+/** Format as percentage string */
+function pct(a, b) {
+  return b ? ((a / b) * 100).toFixed(1) + '%' : '0%';
+}
+
+/* ================================================================
+   2. FILE UPLOAD HANDLERS
+   ================================================================ */
+var dropZone = document.getElementById('dropZone');
+var fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', function(e) {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', function() {
+  dropZone.classList.remove('dragover');
+});
+dropZone.addEventListener('drop', function(e) {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', function() {
+  if (this.files.length) processFile(this.files[0]);
+});
+
+function processFile(file) {
+  document.getElementById('uploadStatus').innerHTML =
+    '<span class="spinner"></span> Processing ' + file.name + '...';
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      var data = parseWorkbook(wb);
+      window._lastData = data;
+      buildDashboard(data);
+      document.getElementById('uploadScreen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+    } catch (err) {
+      document.getElementById('uploadStatus').innerHTML =
+        '<span style="color:#DC2626">Error: ' + err.message + '</span>';
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ================================================================
+   3. EXCEL PARSING
+   ================================================================ */
+
+/**
+ * Parse a named sheet from the workbook into an array of row objects.
+ * Finds the header row by looking for 'Office' in column A within the first 10 rows.
+ */
+function parseSheet(wb, name) {
+  var ws = wb.Sheets[name];
+  if (!ws) return [];
+
+  var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+  var hIdx = -1;
+
+  for (var i = 0; i < Math.min(10, raw.length); i++) {
+    if (raw[i] && raw[i][0] === 'Office') { hIdx = i; break; }
+  }
+  if (hIdx < 0) return [];
+
+  var headers = raw[hIdx];
+  var rows = [];
+  for (var i = hIdx + 1; i < raw.length; i++) {
+    var r = raw[i];
+    if (!r || !r[0] || r[0] === 'Office') continue;
+    var obj = {};
+    for (var j = 0; j < headers.length; j++) {
+      obj[headers[j]] = r[j];
+    }
+    rows.push(obj);
+  }
+  return rows;
+}
+
+/**
+ * Parse the full workbook — extracts metadata from sheet 1,
+ * then parses Processed, Prompted+Processed, AR Status, and Payout sheets.
+ */
+function parseWorkbook(wb) {
+  // Extract metadata from first sheet
+  var ws1 = wb.Sheets[wb.SheetNames[0]];
+  var raw1 = XLSX.utils.sheet_to_json(ws1, { header: 1, defval: null });
+  var groupName = (raw1[0] && raw1[0][1]) || 'Report';
+  var asOfDate = (raw1[2] && raw1[2][1]) || '';
+  var reportDesc = (raw1[1] && raw1[1][1]) || '';
+  var daysMatch = reportDesc.match(/(\d+)\s*Days/);
+  var days = daysMatch ? daysMatch[1] : '';
+
+  // Parse each sheet
+  var proc = parseSheet(wb, 'Processed for Posting');
+  var pp = parseSheet(wb, 'Prompted + Processed');
+  var ar = parseSheet(wb, 'AR Status Report');
+  var po = parseSheet(wb, 'Payout Report');
+
+  // Helper: convert various date formats to YYYY-MM string
+  function parseMonth(d) {
+    if (d instanceof Date) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    }
+    if (typeof d === 'string') {
+      var p = d.split('/');
+      if (p.length === 3) return p[2] + '-' + p[0].padStart(2, '0');
+    }
+    if (typeof d === 'number') {
+      var dt = new Date((d - 25569) * 86400000);
+      return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0');
+    }
+    return undefined;
+  }
+
+  // Enrich Processed rows
+  proc.forEach(function(r) {
+    r._amt = Number(r['Processed Amount']) || 0;
+    r._fees = Number(r['Processing Fees']) || 0;
+    r._net = Number(r['Net Deposit']) || 0;
+    r._month = parseMonth(r['Paid Date']);
+  });
+
+  // Enrich Prompted+Processed rows
+  pp.forEach(function(r) {
+    r._amt = Number(r['Amount']) || 0;
+    r._month = parseMonth(r['Date']);
+    r._letters = Number(r['Letter Touchpoints']) || 0;
+    r._texts = Number(r['Text Touchpoints']) || 0;
+    r._emails = Number(r['Email Touchpoints']) || 0;
+    r._daysOnFlow = Number(r['Days in Flow']) || Number(r['Days on Flow']) || 0;
+  });
+
+  // Enrich AR rows
+  ar.forEach(function(r) {
+    r._bal = Number(r['Patient Balance']) || 0;
+    r._letters = Number(r['Letter Touchpoints']) || 0;
+    r._texts = Number(r['Text Touchpoints']) || 0;
+    r._emails = Number(r['Email Touchpoints']) || 0;
+  });
+
+  // Enrich Payout rows
+  po.forEach(function(r) {
+    r._net = Number(r['Net Bank Payout']) || 0;
+  });
+
+  return {
+    groupName: groupName,
+    asOfDate: asOfDate,
+    days: days,
+    proc: proc,
+    pp: pp,
+    ar: ar,
+    po: po
+  };
+}
+
+/* ================================================================
+   4. DATA UTILITIES
+   ================================================================ */
+
+/** Group array of objects by a key field */
+function groupBy(arr, key) {
+  var m = {};
+  arr.forEach(function(r) {
+    var k = r[key] || 'Unknown';
+    if (!m[k]) m[k] = [];
+    m[k].push(r);
+  });
+  return m;
+}
+
+/** Sum a numeric field across an array */
+function sumBy(arr, field) {
+  return arr.reduce(function(s, r) { return s + (r[field] || 0); }, 0);
+}
+
+/** Get top N groups sorted by a value function */
+function topN(obj, valFn, n) {
+  return Object.keys(obj).map(function(k) {
+    return { key: k, val: valFn(obj[k]), items: obj[k] };
+  }).sort(function(a, b) {
+    return b.val - a.val;
+  }).slice(0, n || 15);
+}
+
+/* ================================================================
+   5. UI HELPERS
+   ================================================================ */
+
+/** Switch between Overview and AR Status tabs */
+function showTab(id, btn) {
+  ['overview', 'ar'].forEach(function(t) {
+    document.getElementById('tab-' + t).classList.add('hidden');
+  });
+  document.getElementById('tab-' + id).classList.remove('hidden');
+  document.querySelectorAll('.tabs button').forEach(function(b) {
+    b.classList.remove('active');
+  });
+  btn.classList.add('active');
+}
+
+/** Open a drill-down modal with a data table */
+function openDrill(title, sub, rows, headers) {
+  document.getElementById('drillTitle').textContent = title;
+  document.getElementById('drillSub').textContent = sub;
+
+  rows.sort(function(a, b) { return (b[2] || 0) - (a[2] || 0); });
+
+  var h = '<table><thead><tr>';
+  headers.forEach(function(x, i) {
+    h += '<th' + (i === 0 ? ' style="text-align:left"' : '') + '>' + x + '</th>';
+  });
+  h += '</tr></thead><tbody>';
+  rows.forEach(function(r) {
+    h += '<tr>';
+    r.forEach(function(v, i) {
+      if (i === 0) {
+        h += '<td>' + v + '</td>';
+      } else if (typeof v === 'number' && v > 100) {
+        h += '<td class="mono">' + fmt(v) + '</td>';
+      } else {
+        h += '<td class="mono dim">' + (typeof v === 'number' ? fmtN(v) : v) + '</td>';
+      }
+    });
+    h += '</tr>';
+  });
+  h += '</tbody></table>';
+
+  document.getElementById('drillContent').innerHTML = h;
+  document.getElementById('drillModal').classList.add('show');
+}
+
+function closeDrill() {
+  document.getElementById('drillModal').classList.remove('show');
+}
+
+document.getElementById('drillModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDrill();
+});
+
+/** Create a Chart.js chart, track it for cleanup */
+function makeChart(id, cfg) {
+  var el = document.getElementById(id);
+  if (!el) return null;
+  var c = new Chart(el, cfg);
+  charts.push(c);
+  return c;
+}
+
+/* ================================================================
+   6. DASHBOARD BUILDER — DATA COMPUTATION
+   ================================================================ */
+
+function buildDashboard(data) {
+  // Destroy any existing charts
+  charts.forEach(function(c) { c.destroy(); });
+  charts = [];
+
+  var PP = data.pp;
+  var P  = data.proc;
+  var AR = data.ar;
+  var PO = data.po;
+
+  // --- Compute ALL months before any filtering (for sparklines & period toggle) ---
+  var allByMonth = groupBy(PP, '_month');
+  var allMonths = Object.keys(allByMonth).filter(function(m) {
+    return m && m !== 'undefined';
+  }).sort();
+
+  // --- Sparkline data (always from full dataset) ---
+  var monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function mlabel(m) {
+    var p = m.split('-');
+    return monthNames[parseInt(p[1])] + " '" + p[0].slice(2);
+  }
+  var sparkAR = allMonths.map(function(m) { return sumBy(allByMonth[m] || [], '_amt'); });
+  var sparkPrompted = allMonths.map(function(m) {
+    return sumBy((allByMonth[m] || []).filter(function(r) { return r.Type === 'Prompted'; }), '_amt');
+  });
+  var sparkProcessed = allMonths.map(function(m) {
+    return sumBy((allByMonth[m] || []).filter(function(r) { return r.Type === 'Processed'; }), '_amt');
+  });
+
+  // --- Period filtering ---
+  var priorPeriodTotal = null;
+  var priorPeriodProcessed = null;
+  if (_periodMonths > 0 && allMonths.length > _periodMonths) {
+    var recentMonths = allMonths.slice(-_periodMonths);
+    var priorMonths = allMonths.slice(Math.max(0, allMonths.length - _periodMonths * 2), allMonths.length - _periodMonths);
+    var recentSet = {};
+    recentMonths.forEach(function(m) { recentSet[m] = true; });
+    var priorSet = {};
+    priorMonths.forEach(function(m) { priorSet[m] = true; });
+
+    // Prior period metrics (for comparison)
+    var priorPP = PP.filter(function(r) { return priorSet[r._month]; });
+    priorPeriodTotal = sumBy(priorPP, '_amt');
+    priorPeriodProcessed = sumBy(priorPP.filter(function(r) { return r.Type === 'Processed'; }), '_amt');
+
+    // Filter to current period
+    PP = PP.filter(function(r) { return recentSet[r._month]; });
+    P = P.filter(function(r) { return recentSet[r._month]; });
+  }
+
+  // --- Header ---
+  _originalGroupName = data.groupName;
+  document.getElementById('reportTitle').textContent = groupDisplayName(data.groupName) + ' — Payments Report';
+  document.getElementById('reportSubtitle').textContent =
+    (data.days ? data.days + ' Days · ' : '') +
+    Object.keys(groupBy(PP, 'Office')).length + ' Offices · As of ' + data.asOfDate;
+
+  // --- Core metrics ---
+  var ppTotal = sumBy(PP, '_amt');
+  var ppCount = PP.length;
+  var nOffices = Object.keys(groupBy(PP, 'Office')).length;
+
+  var prompted = PP.filter(function(r) { return r.Type === 'Prompted'; });
+  var processed = PP.filter(function(r) { return r.Type === 'Processed'; });
+  var promptedTotal = sumBy(prompted, '_amt');
+  var processedTotal = sumBy(processed, '_amt');
+  var promptedCount = prompted.length;
+  var processedCount = processed.length;
+
+  var totalAR = sumBy(AR, '_bal');
+  var nPatients = AR.length;
+  var blocked = AR.filter(function(r) { return r['AR Status'] === 'Blocked'; });
+  var engaged = AR.filter(function(r) { return r['AR Status'] === 'Engaged'; });
+  var ar90 = AR.filter(function(r) { return r['Aging Bucket'] === '90+'; });
+
+  var totalPayout = sumBy(PO, '_net');
+  var nPayouts = PO.length;
+
+  // Collection rates
+  var collRate = ppCount / (ppCount + engaged.length) * 100;
+  var engagedBal = sumBy(engaged, '_bal');
+  var collRateDollar = (ppTotal + engagedBal) > 0
+    ? (ppTotal / (ppTotal + engagedBal) * 100)
+    : 0;
+
+  // --- Groupings (from filtered PP) ---
+  var byMonth = groupBy(PP, '_month');
+  var months = Object.keys(byMonth).filter(function(m) {
+    return m && m !== 'undefined';
+  }).sort();
+
+  var byOffice = groupBy(PP, 'Office');
+  var officeTop = topN(byOffice, function(a) { return sumBy(a, '_amt'); }, 15);
+  var byDPD = groupBy(PP, 'DPD Bucket');
+
+  var dpdBuckets = ['<30', '30-60', '60-90', '90+'];
+  var dpdColors = ['#C2D7FF', '#8EA9FF', '#335EEA', '#0041C0'];
+
+  var arByStatus = groupBy(AR, 'AR Status');
+  var arByAging = groupBy(AR, 'Aging Bucket');
+  var arByOffice = groupBy(AR, 'Office');
+  var arOfficeTop = topN(arByOffice, function(a) { return sumBy(a, '_bal'); }, 20);
+  var blockedNotes = groupBy(blocked, 'Notes');
+  var notesTop = topN(blockedNotes, function(a) { return sumBy(a, '_bal'); }, 9);
+
+  var ppByOffice = groupBy(PP, 'Office');
+  var ppOfficeLetters = topN(ppByOffice, function(a) {
+    return sumBy(a, '_letters');
+  }, 15).filter(function(x) { return x.val > 0; });
+
+  var ppByDPDAll = groupBy(PP, 'DPD Bucket');
+  var engByDPD = groupBy(engaged, 'Aging Bucket');
+
+  // --- Processing fees ---
+  var totalFees = sumBy(P, '_fees');
+
+  // --- Per-office month counts (for ROI pro-rating) ---
+  var officeMonthCounts = {};
+  Object.keys(ppByOffice).forEach(function(k) {
+    var officeMonths = {};
+    ppByOffice[k].forEach(function(r) {
+      if (r._month) officeMonths[r._month] = true;
+    });
+    officeMonthCounts[k] = Object.keys(officeMonths).length;
+  });
+  var totalOfficeMonths = Object.keys(officeMonthCounts).reduce(function(s, k) {
+    return s + officeMonthCounts[k];
+  }, 0);
+
+  // --- Total letters (for ROI) ---
+  var totalLettersAll = 0;
+  Object.keys(ppByOffice).forEach(function(k) {
+    totalLettersAll += sumBy(ppByOffice[k], '_letters');
+  });
+
+  // --- Bubble Chart: Office Performance Matrix ---
+  var engagedByOffice = groupBy(engaged, 'Office');
+  var bubbleData = [];
+  Object.keys(ppByOffice).forEach(function(k) {
+    var ppItems = ppByOffice[k];
+    var engItems = engagedByOffice[k] || [];
+    var ppAmt = sumBy(ppItems, '_amt');
+    var ppCnt = ppItems.length;
+    var engCnt = engItems.length;
+    var cr = (ppCnt + engCnt) > 0 ? (ppCnt / (ppCnt + engCnt) * 100) : 0;
+    var avg = ppCnt > 0 ? ppAmt / ppCnt : 0;
+    if (ppAmt > 0) {
+      bubbleData.push({ office: k, x: cr, y: avg, total: ppAmt, count: ppCnt });
+    }
+  });
+  var maxBubbleTotal = Math.max.apply(null, bubbleData.map(function(d) { return d.total; })) || 1;
+  bubbleData.forEach(function(d) {
+    d.r = Math.max(4, Math.sqrt(d.total / maxBubbleTotal) * 28);
+  });
+
+  // --- Heatmap: Office × Month ---
+  var heatmapOffices = officeTop.slice(0, 20).map(function(o) { return o.key; });
+  var heatMax = 0;
+  var heatRows = heatmapOffices.map(function(k) {
+    var row = { office: k, vals: [] };
+    months.forEach(function(m) {
+      var items = (ppByOffice[k] || []).filter(function(r) { return r._month === m; });
+      var amt = sumBy(items, '_amt');
+      row.vals.push(amt);
+      if (amt > heatMax) heatMax = amt;
+    });
+    return row;
+  });
+
+  // Store global groupings for chart drilldowns
+  D = {
+    byMonth: byMonth, byDPD: byDPD, byOffice: byOffice,
+    arByStatus: arByStatus, arByAging: arByAging,
+    blockedNotes: blockedNotes, mlabel: mlabel
+  };
+
+  // --- Month-over-Month delta calculations ---
+  var momDelta = { arReduction: null, processed: null, collRate: null };
+  if (months.length >= 2) {
+    var curM = months[months.length - 1];
+    var prevM = months[months.length - 2];
+    var curItems = byMonth[curM] || [];
+    var prevItems = byMonth[prevM] || [];
+
+    var curAmt = sumBy(curItems, '_amt');
+    var prevAmt = sumBy(prevItems, '_amt');
+    momDelta.arReduction = prevAmt ? ((curAmt - prevAmt) / prevAmt * 100) : null;
+
+    var curProc = curItems.filter(function(r) { return r.Type === 'Processed'; });
+    var prevProc = prevItems.filter(function(r) { return r.Type === 'Processed'; });
+    momDelta.processed = sumBy(prevProc, '_amt')
+      ? ((sumBy(curProc, '_amt') - sumBy(prevProc, '_amt')) / sumBy(prevProc, '_amt') * 100)
+      : null;
+
+    var curCR = curItems.length / (curItems.length + engaged.length) * 100;
+    var prevCR = prevItems.length / (prevItems.length + engaged.length) * 100;
+    momDelta.collRate = (curCR && prevCR) ? (curCR - prevCR) : null;
+  }
+
+  /** Render a MoM delta badge */
+  function deltaHtml(val, suffix) {
+    if (val === null || isNaN(val)) return '';
+    if (val < -0.1) return ''; // hide negative deltas
+    var cls = val > 0.1 ? 'up' : 'flat';
+    var arrow = val > 0.1 ? '↑' : '→';
+    var s = suffix || '%';
+    return '<div class="card-delta ' + cls + '">' + arrow + ' ' +
+      Math.abs(val).toFixed(1) + s + ' vs prev month</div>';
+  }
+
+  // --- Touchpoint efficiency ---
+  var officeEfficiency = [];
+  Object.keys(ppByOffice).forEach(function(k) {
+    var items = ppByOffice[k];
+    var tp = sumBy(items, '_letters') + sumBy(items, '_texts') + sumBy(items, '_emails');
+    var ppAmt = sumBy(items, '_amt');
+    if (ppAmt > 0 && tp > 0) {
+      officeEfficiency.push({
+        key: k,
+        touchpoints: tp,
+        arReduction: ppAmt,
+        ratio: tp / ppAmt * 1000
+      });
+    }
+  });
+  officeEfficiency.sort(function(a, b) { return a.ratio - b.ratio; });
+  var efficiencyTop = officeEfficiency.slice(0, 15);
+
+
+  /* ================================================================
+     7. OVERVIEW TAB — HTML
+     ================================================================ */
+  var ov = document.getElementById('tab-overview');
+
+  var html = '';
+
+  // PDF download button + Period toggle
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">';
+  html += '<div class="period-pills">';
+  html += '<span style="font-size:11px;font-weight:600;color:#64748B;padding:5px 4px">Period:</span>';
+  [{ l: 'All Time', v: 0 }, { l: '12 Mo', v: 12 }, { l: '6 Mo', v: 6 }, { l: '3 Mo', v: 3 }].forEach(function(p) {
+    html += '<button data-months="' + p.v + '" class="' + (_periodMonths === p.v ? 'active' : '') + '" onclick="setPeriod(' + p.v + ')">' + p.l + '</button>';
+  });
+  html += '</div>';
+  html += '<button id="downloadPdfBtn" onclick="downloadOverviewPDF()" style="background:#0041C0;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif;display:flex;align-items:center;gap:8px"><span>↓</span> Download as PDF</button>';
+  html += '</div>';
+  html += '<div id="overviewContent">';
+
+  // --- Period comparison delta ---
+  var periodLabel = _periodMonths > 0 ? 'vs prior ' + _periodMonths + ' mo' : 'vs prev month';
+  var periodDeltaAR = null;
+  var periodDeltaProc = null;
+  if (_periodMonths > 0 && priorPeriodTotal !== null && priorPeriodTotal > 0) {
+    periodDeltaAR = ((ppTotal - priorPeriodTotal) / priorPeriodTotal * 100);
+    periodDeltaProc = priorPeriodProcessed > 0 ? ((processedTotal - priorPeriodProcessed) / priorPeriodProcessed * 100) : null;
+  }
+
+  function periodDelta(val) {
+    if (val === null || isNaN(val)) return '';
+    if (val < -0.1) return '';
+    var cls = val > 0.1 ? 'up' : 'flat';
+    var arrow = val > 0.1 ? '↑' : '→';
+    return '<div class="card-delta ' + cls + '">' + arrow + ' ' + Math.abs(val).toFixed(1) + '% ' + periodLabel + '</div>';
+  }
+
+  var showPeriodDelta = _periodMonths > 0;
+  var arDelta = showPeriodDelta ? periodDelta(periodDeltaAR) : deltaHtml(momDelta.arReduction);
+  var procDelta = showPeriodDelta ? periodDelta(periodDeltaProc) : deltaHtml(momDelta.processed);
+  var crDelta = showPeriodDelta ? '' : deltaHtml(momDelta.collRate, 'pp');
+
+  // --- KPI Cards with sparklines ---
+  html += '<div class="cards">';
+  html += '<div class="card accent"><div class="card-label">A/R Reduction</div><div class="card-value">' + fmt(ppTotal) + '</div><div class="card-sub">' + fmtN(ppCount) + ' total notifications</div>' + arDelta + '<div class="sparkline-wrap"><canvas id="sparkAR"></canvas></div></div>';
+  html += '<div class="card"><div class="card-label">Prompted</div><div class="card-value">' + fmt(promptedTotal) + '</div><div class="card-sub">' + fmtN(promptedCount) + ' notifications sent</div><div class="sparkline-wrap"><canvas id="sparkPrompted"></canvas></div></div>';
+  html += '<div class="card"><div class="card-label">Processed</div><div class="card-value">' + fmt(processedTotal) + '</div><div class="card-sub">' + fmtN(processedCount) + ' payments collected</div>' + procDelta + '<div class="sparkline-wrap"><canvas id="sparkProcessed"></canvas></div></div>';
+  html += '<div class="card"><div class="card-label">Collection Rate (Count)</div><div class="card-value">' + collRate.toFixed(1) + '%</div><div class="card-sub">PP count ÷ (PP count + Engaged count)</div>' + crDelta + '</div>';
+  html += '<div class="card accent"><div class="card-label">Collection Rate ($)</div><div class="card-value">' + collRateDollar.toFixed(1) + '%</div><div class="card-sub">PP $ ÷ (PP $ + Engaged balance)</div></div>';
+  html += '</div>';
+
+  // --- ROI Calculator (placed right after KPI cards) ---
+  html += '<div class="section" style="border-left:4px solid #42BA96">';
+  html += '<h2>ROI Calculator</h2>';
+  html += '<p class="sub">Enter your Pearly monthly cost per office — cost is calculated per office based on months each office was active. Net return includes processing fees and letter costs ($0.96/letter).</p>';
+  html += '<div style="display:flex;align-items:center;gap:12px;margin:16px 0;flex-wrap:wrap">';
+  html += '<span style="font-size:13px;font-weight:600;color:#1E2D4A">Monthly Cost per Office:</span>';
+  html += '<div class="roi-input-wrap"><span>$</span><input type="number" id="roiCostInput" class="roi-input" value="' + _roiCostValue + '" min="0" step="50" onchange="updateROI()" oninput="updateROI()"></div>';
+  html += '<span style="font-size:12px;color:#64748B">' + totalOfficeMonths + ' total office-months across ' + nOffices + ' offices</span>';
+  html += '</div>';
+  html += '<div class="roi-grid" id="roiGrid"></div>';
+  html += '</div>';
+
+  // --- Days in Flow Analytics ---
+  // Compute all the data needed for the 4 Days in Flow visualizations
+
+  // Sort all PP rows by days in flow
+  var allDIF = PP.map(function(r) { return { dif: r._daysOnFlow, amt: r._amt, type: r.Type, office: r.Office }; });
+  allDIF.sort(function(a, b) { return a.dif - b.dif; });
+
+  // 1. Cumulative collection speed curve data (at each day threshold, what % of $ collected)
+  var speedThresholds = [1, 3, 5, 7, 10, 14, 21, 30, 45, 60, 90];
+  // Filter to only thresholds that make sense for this data
+  var maxDIF = allDIF.length > 0 ? allDIF[allDIF.length - 1].dif : 0;
+  speedThresholds = speedThresholds.filter(function(t) { return t <= maxDIF + 5; });
+  if (speedThresholds[speedThresholds.length - 1] < maxDIF) speedThresholds.push(Math.ceil(maxDIF));
+
+  var speedData = speedThresholds.map(function(t) {
+    var collected = 0;
+    allDIF.forEach(function(r) { if (r.dif <= t) collected += r.amt; });
+    return { day: t, amt: collected, pct: ppTotal > 0 ? (collected / ppTotal * 100) : 0 };
+  });
+
+  // 2. Prompted vs Processed speed stats
+  var promptedDIF = allDIF.filter(function(r) { return r.type === 'Prompted'; });
+  var processedDIF = allDIF.filter(function(r) { return r.type === 'Processed'; });
+
+  function medianVal(arr) {
+    if (!arr.length) return 0;
+    var s = arr.slice().sort(function(a, b) { return a - b; });
+    return s[Math.floor(s.length / 2)];
+  }
+  function avgVal(arr) {
+    if (!arr.length) return 0;
+    return arr.reduce(function(s, v) { return s + v; }, 0) / arr.length;
+  }
+  function weightedAvg(items) {
+    var totalAmt = items.reduce(function(s, r) { return s + r.amt; }, 0);
+    if (!totalAmt) return 0;
+    return items.reduce(function(s, r) { return s + r.dif * r.amt; }, 0) / totalAmt;
+  }
+
+  var promptedMedian = medianVal(promptedDIF.map(function(r) { return r.dif; }));
+  var processedMedian = medianVal(processedDIF.map(function(r) { return r.dif; }));
+  var promptedAvg = avgVal(promptedDIF.map(function(r) { return r.dif; }));
+  var processedAvg = avgVal(processedDIF.map(function(r) { return r.dif; }));
+  var promptedWAvg = weightedAvg(promptedDIF);
+  var processedWAvg = weightedAvg(processedDIF);
+
+  // (Office speed ranking removed — replaced by Balance by DPD)
+
+  // 4. Balance size by Days in Flow bucket
+  var balanceBuckets = [
+    { label: '0-7', min: 0, max: 7 },
+    { label: '8-14', min: 8, max: 14 },
+    { label: '15-21', min: 15, max: 21 },
+    { label: '22-30', min: 22, max: 30 },
+    { label: '31-45', min: 31, max: 45 },
+    { label: '46-60', min: 46, max: 60 },
+    { label: '61+', min: 61, max: Infinity }
+  ].filter(function(b) { return allDIF.some(function(r) { return r.dif >= b.min && r.dif <= b.max; }); });
+
+  var balanceBucketData = balanceBuckets.map(function(b) {
+    var items = allDIF.filter(function(r) { return r.dif >= b.min && r.dif <= b.max; });
+    var total = items.reduce(function(s, r) { return s + r.amt; }, 0);
+    var avg = items.length > 0 ? total / items.length : 0;
+    return { label: b.label, count: items.length, total: total, avg: avg };
+  });
+
+  /* --- MERGED SECTIONS --- */
+
+  // ===== SECTION A: Collection Speed (S-curve + Prompted vs Processed) =====
+  html += '<div class="section">';
+  html += '<h2>Collection Speed</h2>';
+  html += '<p class="sub">How fast Pearly converts balances — cumulative collection curve and Prompted vs Processed breakdown</p>';
+
+  // Milestone cards
+  html += '<div class="cards" style="margin-bottom:16px">';
+  var mile7 = speedData.find(function(d) { return d.day >= 7; });
+  var mile14 = speedData.find(function(d) { return d.day >= 14; });
+  var mile30 = speedData.find(function(d) { return d.day >= 30; });
+  if (mile7) html += '<div class="card"><div class="card-label">Within 7 Days</div><div class="card-value">' + mile7.pct.toFixed(1) + '%</div><div class="card-sub">' + fmt(mile7.amt) + ' collected</div></div>';
+  if (mile14) html += '<div class="card"><div class="card-label">Within 14 Days</div><div class="card-value">' + mile14.pct.toFixed(1) + '%</div><div class="card-sub">' + fmt(mile14.amt) + ' collected</div></div>';
+  if (mile30) html += '<div class="card"><div class="card-label">Within 30 Days</div><div class="card-value">' + mile30.pct.toFixed(1) + '%</div><div class="card-sub">' + fmt(mile30.amt) + ' collected</div></div>';
+  html += '<div class="card accent"><div class="card-label">Median Days</div><div class="card-value">' + medianVal(allDIF.map(function(r) { return r.dif; })) + '</div><div class="card-sub">Half of all collections faster than this</div></div>';
+  html += '</div>';
+
+  // S-curve
+  html += '<div style="height:280px"><canvas id="cSpeedCurve"></canvas></div>';
+
+  // Prompted vs Processed sub-section
+  html += '<h2 style="margin-top:28px">Prompted vs Processed</h2>';
+  html += '<p class="sub">Processed (patient self-pay) resolves faster than Prompted (office-initiated) collections</p>';
+  html += '<div class="row" style="margin-bottom:0;gap:14px">';
+  html += '<div style="flex:1;min-width:300px;height:260px"><canvas id="cTypeSpeed"></canvas></div>';
+  html += '<div style="flex:1;min-width:280px">';
+  html += '<table><thead><tr><th>Metric</th><th>Prompted</th><th>Processed</th></tr></thead><tbody>';
+  html += '<tr><td>Activities</td><td class="mono dim">' + fmtN(promptedCount) + '</td><td class="mono dim">' + fmtN(processedCount) + '</td></tr>';
+  html += '<tr><td>Total Collected</td><td class="mono dim">' + fmt(promptedTotal) + '</td><td class="mono dim">' + fmt(processedTotal) + '</td></tr>';
+  html += '<tr><td>Median Days</td><td class="mono bold">' + promptedMedian.toFixed(0) + '</td><td class="mono bold" style="color:#42BA96">' + processedMedian.toFixed(0) + '</td></tr>';
+  html += '<tr><td>Avg Days</td><td class="mono dim">' + promptedAvg.toFixed(1) + '</td><td class="mono dim">' + processedAvg.toFixed(1) + '</td></tr>';
+  html += '<tr><td>$-Weighted Avg</td><td class="mono dim">' + promptedWAvg.toFixed(1) + '</td><td class="mono dim">' + processedWAvg.toFixed(1) + '</td></tr>';
+  html += '</tbody></table>';
+  html += '</div></div></div>';
+
+  // ===== Monthly A/R Reduction Volume =====
+  html += '<div class="section"><h2>Monthly A/R Reduction Volume</h2>';
+  html += '<p class="sub">Prompted + Processed · Click a bar to drill down</p>';
+  html += '<div style="height:260px"><canvas id="cMonthly"></canvas></div>';
+  html += '<p class="click-hint">Click any bar to see office breakdown</p></div>';
+
+  // ===== Office Performance Matrix (Bubble) =====
+  html += '<div class="section">';
+  html += '<h2>Office Performance Matrix</h2>';
+  html += '<p class="sub">X = collection rate · Y = avg balance collected · Bubble size = total $ collected — hover for details</p>';
+  html += '<div style="height:360px"><canvas id="cBubble"></canvas></div>';
+  html += '</div>';
+
+  // ===== SECTION B: DPD Analysis (Distribution doughnut + Balance by DPD) =====
+  html += '<div class="section">';
+  html += '<h2>DPD Analysis</h2>';
+  html += '<p class="sub">Distribution of A/R Reduction by days past due — with average balance and total per bucket</p>';
+  html += '<div class="row" style="margin-bottom:16px;gap:14px">';
+  html += '<div style="flex:1;min-width:280px;height:260px"><canvas id="cDPD"></canvas></div>';
+  html += '<div style="flex:1;min-width:400px;height:260px"><canvas id="cBalanceByDPD"></canvas></div>';
+  html += '</div>';
+  // Combined DPD table
+  html += '<div style="overflow-x:auto"><table><thead><tr><th>DPD Bucket</th><th>Count</th><th>Total</th><th>Avg Balance</th><th>% of Total</th></tr></thead><tbody id="dpdAnalysisBody"></tbody></table></div>';
+  html += '</div>';
+
+  // ===== SECTION C: Collection Rate by DPD (Count + $ merged) =====
+  html += '<div class="section">';
+  html += '<h2>Collection Rate by DPD</h2>';
+  html += '<p class="sub">Collection rate by count and by dollar amount per DPD bucket</p>';
+  html += '<div class="row" style="margin-bottom:16px;gap:14px">';
+  html += '<div style="flex:1;min-width:340px"><h2 style="font-size:14px;margin-bottom:8px">By Count</h2><div style="height:220px"><canvas id="cCollDPD"></canvas></div></div>';
+  html += '<div style="flex:1;min-width:340px"><h2 style="font-size:14px;margin-bottom:8px">By Dollar</h2><div style="height:220px"><canvas id="cCollDPDDollar"></canvas></div></div>';
+  html += '</div>';
+  // Combined table with both rates
+  html += '<div style="overflow-x:auto"><table><thead><tr><th>DPD</th><th>PP Count</th><th>Engaged Count</th><th>Rate (Count)</th><th>PP Amount</th><th>Engaged Bal</th><th>Rate ($)</th></tr></thead><tbody id="collRateCombinedBody"></tbody></table></div>';
+  html += '</div>';
+
+  // ===== SECTION D: Balance Analysis (by Days in Flow + by DPD already above) =====
+  html += '<div class="section">';
+  html += '<h2>Balance Analysis by Days in Flow</h2>';
+  html += '<p class="sub">Average balance collected at each stage — shows whether larger or smaller balances convert faster</p>';
+  html += '<div class="row" style="margin-bottom:0;gap:14px">';
+  html += '<div style="flex:1;min-width:400px;height:260px"><canvas id="cBalanceByDays"></canvas></div>';
+  html += '<div style="flex:1;min-width:280px;overflow-x:auto">';
+  html += '<table><thead><tr><th>Days</th><th>Count</th><th>Avg Balance</th><th>Total</th></tr></thead><tbody id="balanceDaysBody"></tbody></table>';
+  html += '</div></div></div>';
+
+  // --- Touchpoint Efficiency ---
+  html += '<div class="section"><h2>Touchpoint Efficiency by Office</h2>';
+  html += '<p class="sub">Touchpoints per $1,000 in A/R Reduction — lower is more efficient</p>';
+  html += '<div class="row" style="margin-bottom:0;gap:14px">';
+  html += '<div style="flex:1;min-width:400px;height:' + Math.max(280, efficiencyTop.length * 24) + 'px"><canvas id="cEfficiency"></canvas></div>';
+  html += '</div></div>';
+
+  // --- Office × Month Heatmap ---
+  if (months.length > 1 && heatmapOffices.length > 1) {
+    html += '<div class="section"><h2>Collection Heatmap</h2>';
+    html += '<p class="sub">Office × Month — darker = more $ collected</p>';
+    html += '<div style="overflow-x:auto"><table style="font-size:11px">';
+    html += '<thead><tr><th style="text-align:left;min-width:140px">Office</th>';
+    months.forEach(function(m) { html += '<th style="text-align:center;padding:6px 4px;min-width:50px">' + mlabel(m) + '</th>'; });
+    html += '</tr></thead><tbody>';
+    heatRows.forEach(function(row) {
+      html += '<tr><td style="white-space:nowrap">' + officeName(row.office) + '</td>';
+      row.vals.forEach(function(v) {
+        var intensity = heatMax > 0 ? v / heatMax : 0;
+        var alpha = Math.max(0, Math.min(1, intensity));
+        var bg = v === 0 ? 'transparent' : 'rgba(0,65,192,' + (0.08 + alpha * 0.82).toFixed(2) + ')';
+        var color = alpha > 0.5 ? '#fff' : '#1E2D4A';
+        html += '<td class="mono" style="text-align:center;padding:6px 4px;background:' + bg + ';color:' + color + ';border-radius:3px">' + (v > 0 ? fmtK(v) : '') + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table></div></div>';
+  }
+
+  // --- Letters Sent (only if letter data exists) ---
+  if (totalLettersAll > 0) {
+    html += '<div class="section"><h2>Letters Sent by Office</h2>';
+    html += '<p class="sub">From Prompted + Processed touchpoints</p>';
+    html += '<div class="row" style="margin-bottom:0;gap:14px">';
+    html += '<div style="flex:1;min-width:400px;height:' + Math.max(280, ppOfficeLetters.length * 24) + 'px"><canvas id="cLetters"></canvas></div>';
+    html += '<div style="flex:1;min-width:300px;overflow-x:auto"><table><thead><tr><th>Office</th><th>Texts</th><th>Emails</th><th>Letters</th></tr></thead><tbody id="lettersTableBody"></tbody></table></div>';
+    html += '</div></div>';
+  }
+
+  html += '</div>'; // close #overviewContent
+
+  ov.innerHTML = html;
+
+  // --- Render sparklines ---
+  makeSparkline('sparkAR', sparkAR, '#0041C0');
+  makeSparkline('sparkPrompted', sparkPrompted, '#42BA96');
+  makeSparkline('sparkProcessed', sparkProcessed, '#335EEA');
+
+  // --- Store data for ROI recalculation ---
+  window._roiData = {
+    nOffices: nOffices,
+    ppTotal: ppTotal,
+    months: months,
+    byMonth: byMonth,
+    nMonths: months.length || 1,
+    totalFees: totalFees,
+    totalLetters: totalLettersAll,
+    totalOfficeMonths: totalOfficeMonths,
+    officeMonthCounts: officeMonthCounts
+  };
+
+  /* ================================================================
+     8. OVERVIEW TAB — TABLES
+     ================================================================ */
+
+  // Letters table (only if letter data exists)
+  if (totalLettersAll > 0) {
+    var ltb = document.getElementById('lettersTableBody');
+    var totalLetters = 0, totalTexts = 0, totalEmails = 0;
+    Object.keys(ppByOffice).forEach(function(k) {
+      var a = ppByOffice[k];
+      totalLetters += sumBy(a, '_letters');
+      totalTexts += sumBy(a, '_texts');
+      totalEmails += sumBy(a, '_emails');
+    });
+    ppOfficeLetters.forEach(function(o) {
+      var t = sumBy(o.items, '_texts');
+      var e = sumBy(o.items, '_emails');
+      ltb.innerHTML += '<tr><td>' + officeName(o.key) + '</td>' +
+        '<td class="mono dim">' + fmtN(t) + '</td>' +
+        '<td class="mono dim">' + fmtN(e) + '</td>' +
+        '<td class="mono bold" style="color:#0041C0">' + fmtN(o.val) + '</td></tr>';
+    });
+    ltb.innerHTML += '<tr class="total-row"><td>All Offices</td>' +
+      '<td class="mono">' + fmtN(totalTexts) + '</td>' +
+      '<td class="mono">' + fmtN(totalEmails) + '</td>' +
+      '<td class="mono" style="color:#0041C0">' + fmtN(totalLetters) + '</td></tr>';
+  }
+
+  // DPD Analysis combined table + data for charts
+  var balanceDPDData = dpdBuckets.map(function(b) {
+    var items = ppByDPDAll[b] || [];
+    var total = sumBy(items, '_amt');
+    var avg = items.length > 0 ? total / items.length : 0;
+    return { bucket: b, count: items.length, total: total, avg: avg };
+  });
+
+  var dpdab = document.getElementById('dpdAnalysisBody');
+  balanceDPDData.forEach(function(d, i) {
+    var pctOfTotal = ppTotal > 0 ? (d.total / ppTotal * 100) : 0;
+    dpdab.innerHTML += '<tr><td>' + (d.bucket === '<30' ? '&lt;30' : d.bucket) + ' days</td>' +
+      '<td class="mono dim">' + fmtN(d.count) + '</td>' +
+      '<td class="mono bold" style="color:' + dpdColors[i] + '">' + fmt(d.total) + '</td>' +
+      '<td class="mono dim">' + fmt(d.avg) + '</td>' +
+      '<td class="mono dim">' + pctOfTotal.toFixed(1) + '%</td></tr>';
+  });
+  dpdab.innerHTML += '<tr class="total-row"><td>All</td>' +
+    '<td class="mono">' + fmtN(ppCount) + '</td>' +
+    '<td class="mono">' + fmt(ppTotal) + '</td>' +
+    '<td class="mono">' + fmt(ppTotal / (ppCount || 1)) + '</td>' +
+    '<td class="mono">100%</td></tr>';
+
+  // Collection Rate combined table + data for charts
+  var collRates = [];
+  var collRatesDollar = [];
+  var totalEngBal = sumBy(engaged, '_bal');
+  var crcb = document.getElementById('collRateCombinedBody');
+
+  dpdBuckets.forEach(function(b, i) {
+    var ppC = (ppByDPDAll[b] || []).length;
+    var engC = (engByDPD[b] || []).length;
+    var rateCount = (ppC + engC) ? ppC / (ppC + engC) * 100 : 0;
+    collRates.push(rateCount);
+
+    var ppAmt = sumBy(ppByDPDAll[b] || [], '_amt');
+    var engAmt = sumBy(engByDPD[b] || [], '_bal');
+    var rateDollar = (ppAmt + engAmt) ? ppAmt / (ppAmt + engAmt) * 100 : 0;
+    collRatesDollar.push(rateDollar);
+
+    crcb.innerHTML += '<tr><td>' + (b === '<30' ? '&lt;30' : b) + '</td>' +
+      '<td class="mono dim">' + fmtN(ppC) + '</td>' +
+      '<td class="mono dim">' + fmtN(engC) + '</td>' +
+      '<td class="mono bold" style="color:' + dpdColors[i] + '">' + rateCount.toFixed(1) + '%</td>' +
+      '<td class="mono dim">' + fmt(ppAmt) + '</td>' +
+      '<td class="mono dim">' + fmt(engAmt) + '</td>' +
+      '<td class="mono bold" style="color:' + dpdColors[i] + '">' + rateDollar.toFixed(1) + '%</td></tr>';
+  });
+  crcb.innerHTML += '<tr class="total-row"><td>Total</td>' +
+    '<td class="mono">' + fmtN(ppCount) + '</td>' +
+    '<td class="mono">' + fmtN(engaged.length) + '</td>' +
+    '<td class="mono bold">' + collRate.toFixed(1) + '%</td>' +
+    '<td class="mono">' + fmt(ppTotal) + '</td>' +
+    '<td class="mono">' + fmt(totalEngBal) + '</td>' +
+    '<td class="mono bold">' + collRateDollar.toFixed(1) + '%</td></tr>';
+
+  // Initialize ROI calculator
+  updateROI();
+
+  // Balance by days table
+  var bdb = document.getElementById('balanceDaysBody');
+  balanceBucketData.forEach(function(d) {
+    bdb.innerHTML += '<tr><td>' + d.label + ' days</td>' +
+      '<td class="mono dim">' + fmtN(d.count) + '</td>' +
+      '<td class="mono bold" style="color:#335EEA">' + fmt(d.avg) + '</td>' +
+      '<td class="mono dim">' + fmt(d.total) + '</td></tr>';
+  });
+  bdb.innerHTML += '<tr class="total-row"><td>All</td>' +
+    '<td class="mono">' + fmtN(allDIF.length) + '</td>' +
+    '<td class="mono">' + fmt(ppTotal / (allDIF.length || 1)) + '</td>' +
+    '<td class="mono">' + fmt(ppTotal) + '</td></tr>';
+
+  /* ================================================================
+     9. OVERVIEW TAB — CHARTS
+     ================================================================ */
+
+  Chart.defaults.color = '#64748B';
+  Chart.defaults.borderColor = '#D6E4FF';
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.plugins.legend.display = false;
+
+  // --- MoM growth data removed per request ---
+
+  // Monthly A/R Reduction (stacked bar)
+  makeChart('cMonthly', {
+    type: 'bar',
+    data: {
+      labels: months.map(mlabel),
+      datasets: [
+        {
+          label: 'Processed',
+          data: months.map(function(m) {
+            return sumBy((byMonth[m] || []).filter(function(r) { return r.Type === 'Processed'; }), '_amt');
+          }),
+          backgroundColor: '#335EEA', borderRadius: 6, barPercentage: 0.5
+        },
+        {
+          label: 'Prompted',
+          data: months.map(function(m) {
+            return sumBy((byMonth[m] || []).filter(function(r) { return r.Type === 'Prompted'; }), '_amt');
+          }),
+          backgroundColor: '#42BA96', borderRadius: 6, barPercentage: 0.5
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#64748B', font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: function(c) { return c.dataset.label + ': ' + fmt(c.parsed.y); }
+          }
+        }
+      },
+      onClick: function(e, el) {
+        if (!el.length) return;
+        var m = months[el[0].index];
+        var g = groupBy(byMonth[m], 'Office');
+        var rows = topN(g, function(a) { return sumBy(a, '_amt'); }, 20)
+          .map(function(o) { return [officeName(o.key), o.items.length, o.val]; });
+        openDrill(mlabel(m) + ' Breakdown', 'Office detail', rows, ['Office', 'Notifications', 'Amount']);
+      },
+      scales: {
+        y: { stacked: true, ticks: { callback: fmtK }, grid: { color: '#E8EEFF' } },
+        x: { stacked: true, grid: { display: false } }
+      }
+    }
+  });
+
+  // Office Performance Matrix (Bubble chart)
+  makeChart('cBubble', {
+    type: 'bubble',
+    data: {
+      datasets: [{
+        label: 'Offices',
+        data: bubbleData.map(function(d) { return { x: d.x, y: d.y, r: d.r, _office: officeName(d.office), _total: d.total, _count: d.count }; }),
+        backgroundColor: bubbleData.map(function(d, i) {
+          // Color by collection rate: green for high, blue for mid, red for low
+          if (d.x >= 70) return 'rgba(66,186,150,0.55)';
+          if (d.x >= 40) return 'rgba(51,94,234,0.55)';
+          return 'rgba(220,38,38,0.45)';
+        }),
+        borderColor: bubbleData.map(function(d) {
+          if (d.x >= 70) return '#42BA96';
+          if (d.x >= 40) return '#335EEA';
+          return '#DC2626';
+        }),
+        borderWidth: 1.5
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: {
+          title: { display: true, text: 'Collection Rate (%)', color: '#64748B', font: { size: 11 } },
+          grid: { color: '#E8EEFF' },
+          ticks: { callback: function(v) { return v + '%'; } }
+        },
+        y: {
+          title: { display: true, text: 'Avg Balance Collected', color: '#64748B', font: { size: 11 } },
+          grid: { color: '#E8EEFF' },
+          ticks: { callback: function(v) { return '$' + Math.round(v); } }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(c) {
+              var d = c.raw;
+              return [
+                d._office,
+                'Collection Rate: ' + d.x.toFixed(1) + '%',
+                'Avg Balance: ' + fmt(d.y),
+                'Total Collected: ' + fmt(d._total) + ' (' + fmtN(d._count) + ')'
+              ];
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // DPD Distribution (doughnut with legend)
+  makeChart('cDPD', {
+    type: 'doughnut',
+    data: {
+      labels: dpdBuckets,
+      datasets: [{
+        data: dpdBuckets.map(function(b) { return sumBy(byDPD[b] || [], '_amt'); }),
+        backgroundColor: dpdColors, borderWidth: 2, borderColor: '#FFFFFF', spacing: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '58%',
+      onClick: function(e, el) {
+        if (!el.length) return;
+        var b = dpdBuckets[el[0].index];
+        var g = groupBy(byDPD[b] || [], 'Office');
+        var rows = topN(g, function(a) { return sumBy(a, '_amt'); }, 20)
+          .map(function(o) { return [officeName(o.key), o.items.length, o.val]; });
+        openDrill('DPD: ' + b + ' Days', 'Office breakdown', rows, ['Office', 'Txns', 'Amount']);
+      },
+      plugins: {
+        legend: {
+          display: true, position: 'bottom',
+          labels: { color: '#64748B', font: { size: 11 }, padding: 12, usePointStyle: true, pointStyle: 'rectRounded' }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(c) {
+              return c.label + ' days: ' + fmt(c.parsed) + ' (' + ((c.parsed / ppTotal) * 100).toFixed(1) + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Collection Rate by DPD — Count
+  makeChart('cCollDPD', {
+    type: 'bar',
+    data: { labels: dpdBuckets, datasets: [{ data: collRates, backgroundColor: dpdColors, borderRadius: 6, barPercentage: 0.6 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { y: { ticks: { callback: function(v) { return v + '%'; } }, grid: { color: '#E8EEFF' }, max: 100 }, x: { grid: { display: false } } },
+      plugins: { tooltip: { callbacks: { label: function(c) { return c.parsed.y.toFixed(1) + '%'; } } } }
+    }
+  });
+
+  // Collection Rate by DPD — Dollar
+  makeChart('cCollDPDDollar', {
+    type: 'bar',
+    data: { labels: dpdBuckets, datasets: [{ data: collRatesDollar, backgroundColor: dpdColors, borderRadius: 6, barPercentage: 0.6 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { y: { ticks: { callback: function(v) { return v + '%'; } }, grid: { color: '#E8EEFF' }, max: 100 }, x: { grid: { display: false } } },
+      plugins: { tooltip: { callbacks: { label: function(c) { return c.parsed.y.toFixed(1) + '%'; } } } }
+    }
+  });
+
+  // Letters chart (only if letter data exists)
+  if (totalLettersAll > 0) {
+    makeChart('cLetters', {
+      type: 'bar',
+      data: {
+        labels: ppOfficeLetters.map(function(o) { var n = officeName(o.key); return n.length > 25 ? n.slice(0, 23) + '..' : n; }),
+        datasets: [{ data: ppOfficeLetters.map(function(o) { return o.val; }), backgroundColor: '#0041C0', borderRadius: 6, barPercentage: 0.6 }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        scales: { x: { grid: { color: '#E8EEFF' } }, y: { grid: { display: false }, ticks: { font: { size: 9 } } } },
+        plugins: { tooltip: { callbacks: { label: function(c) { return c.parsed.x + ' letters'; } } } }
+      }
+    });
+  }
+
+  // Touchpoint Efficiency chart
+  var effLabels = efficiencyTop.map(function(o) { var n = officeName(o.key); return n.length > 25 ? n.slice(0, 23) + '..' : n; });
+  makeChart('cEfficiency', {
+    type: 'bar',
+    data: {
+      labels: effLabels,
+      datasets: [{
+        label: 'TP per $1K',
+        data: efficiencyTop.map(function(o) { return o.ratio; }),
+        backgroundColor: efficiencyTop.map(function(o, i) {
+          return i < 5 ? '#42BA96' : i < 10 ? '#8EA9FF' : '#DC2626';
+        }),
+        borderRadius: 6, barPercentage: 0.6
+      }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { grid: { color: '#E8EEFF' }, title: { display: true, text: 'Touchpoints per $1,000 A/R Reduction', font: { size: 10 }, color: '#64748B' } },
+        y: { grid: { display: false }, ticks: { font: { size: 9 } } }
+      },
+      plugins: { tooltip: { callbacks: { label: function(c) { return c.parsed.x.toFixed(1) + ' touchpoints per $1K'; } } } }
+    }
+  });
+
+  // --- Days in Flow Charts ---
+
+  // Chart 1: Cumulative Collection Speed Curve (area line chart)
+  makeChart('cSpeedCurve', {
+    type: 'line',
+    data: {
+      labels: speedData.map(function(d) { return 'Day ' + d.day; }),
+      datasets: [{
+        label: '% of $ Collected',
+        data: speedData.map(function(d) { return d.pct; }),
+        borderColor: '#0041C0',
+        backgroundColor: 'rgba(0,65,192,0.08)',
+        fill: true,
+        pointBackgroundColor: '#0041C0',
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        borderWidth: 2.5,
+        tension: 0.35
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        y: {
+          min: 0, max: 100,
+          ticks: { callback: function(v) { return v + '%'; }, stepSize: 20 },
+          grid: { color: '#E8EEFF' }
+        },
+        x: { grid: { display: false } }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(c) {
+              var d = speedData[c.dataIndex];
+              return d.pct.toFixed(1) + '% collected (' + fmt(d.amt) + ')';
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Chart 2: Prompted vs Processed speed (overlaid histograms)
+  // Build histogram data for both types
+  var typeSpeedRanges = [
+    { lo: 0, hi: 0, label: 'Same Day' },
+    { lo: 1, hi: 3, label: '1-3' },
+    { lo: 4, hi: 7, label: '4-7' },
+    { lo: 8, hi: 14, label: '8-14' },
+    { lo: 15, hi: 21, label: '15-21' },
+    { lo: 22, hi: 30, label: '22-30' },
+    { lo: 31, hi: 45, label: '31-45' },
+    { lo: 46, hi: 60, label: '46-60' },
+    { lo: 61, hi: 90, label: '61-90' },
+    { lo: 91, hi: Infinity, label: '90+' }
+  ];
+  var typeSpeedLabels = [];
+  var promptedHist = [];
+  var processedHist = [];
+  typeSpeedRanges.forEach(function(range) {
+    if (range.lo > maxDIF + 5) return;
+    var pAmt = 0, prAmt = 0;
+    promptedDIF.forEach(function(r) { if (r.dif >= range.lo && r.dif <= range.hi) pAmt += r.amt; });
+    processedDIF.forEach(function(r) { if (r.dif >= range.lo && r.dif <= range.hi) prAmt += r.amt; });
+    // Only include buckets that have data
+    if (pAmt > 0 || prAmt > 0) {
+      typeSpeedLabels.push(range.label);
+      promptedHist.push(pAmt);
+      processedHist.push(prAmt);
+    }
+  });
+
+  makeChart('cTypeSpeed', {
+    type: 'bar',
+    data: {
+      labels: typeSpeedLabels,
+      datasets: [
+        { label: 'Prompted', data: promptedHist, backgroundColor: 'rgba(66,186,150,0.6)', borderRadius: 4, barPercentage: 0.8, categoryPercentage: 0.7 },
+        { label: 'Processed', data: processedHist, backgroundColor: 'rgba(51,94,234,0.6)', borderRadius: 4, barPercentage: 0.8, categoryPercentage: 0.7 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#64748B', font: { size: 11 } } },
+        tooltip: { callbacks: { label: function(c) { return c.dataset.label + ': ' + fmt(c.parsed.y); } } }
+      },
+      scales: {
+        y: { ticks: { callback: fmtK }, grid: { color: '#E8EEFF' } },
+        x: { grid: { display: false }, title: { display: true, text: 'Days in Flow', font: { size: 10 }, color: '#64748B' } }
+      }
+    }
+  });
+
+  // Chart 3: Balance Size by DPD Bucket (combo: bar for total, line for avg)
+  makeChart('cBalanceByDPD', {
+    type: 'bar',
+    data: {
+      labels: balanceDPDData.map(function(d) { return (d.bucket === '<30' ? '<30' : d.bucket) + ' DPD'; }),
+      datasets: [
+        {
+          label: 'Total Collected',
+          data: balanceDPDData.map(function(d) { return d.total; }),
+          backgroundColor: dpdColors.map(function(c) { return c + '40'; }),
+          borderColor: dpdColors,
+          borderWidth: 1.5,
+          borderRadius: 6,
+          barPercentage: 0.6,
+          yAxisID: 'y',
+          order: 2
+        },
+        {
+          label: 'Avg Balance',
+          data: balanceDPDData.map(function(d) { return d.avg; }),
+          type: 'line',
+          borderColor: '#DC2626',
+          backgroundColor: 'transparent',
+          pointBackgroundColor: '#DC2626',
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          borderWidth: 2.5,
+          tension: 0.3,
+          yAxisID: 'y1',
+          order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#64748B', font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: function(c) {
+              if (c.dataset.label === 'Avg Balance') return 'Avg: ' + fmt(c.parsed.y) + ' (' + fmtN(balanceDPDData[c.dataIndex].count) + ' notifications)';
+              return 'Total: ' + fmt(c.parsed.y);
+            }
+          }
+        }
+      },
+      scales: {
+        y: { ticks: { callback: fmtK }, grid: { color: '#E8EEFF' }, title: { display: true, text: 'Total $', font: { size: 10 }, color: '#64748B' } },
+        y1: { position: 'right', ticks: { callback: function(v) { return '$' + Math.round(v); }, color: '#DC2626', font: { size: 10 } }, grid: { display: false }, title: { display: true, text: 'Avg Balance', color: '#DC2626', font: { size: 10 } } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  // Chart 4: Balance Size by Days in Flow (combo: bar for count, line for avg balance)
+  makeChart('cBalanceByDays', {
+    type: 'bar',
+    data: {
+      labels: balanceBucketData.map(function(d) { return d.label + 'd'; }),
+      datasets: [
+        {
+          label: 'Total Collected',
+          data: balanceBucketData.map(function(d) { return d.total; }),
+          backgroundColor: 'rgba(0,65,192,0.15)',
+          borderColor: '#0041C0',
+          borderWidth: 1,
+          borderRadius: 4,
+          barPercentage: 0.6,
+          yAxisID: 'y',
+          order: 2
+        },
+        {
+          label: 'Avg Balance',
+          data: balanceBucketData.map(function(d) { return d.avg; }),
+          type: 'line',
+          borderColor: '#DC2626',
+          backgroundColor: 'transparent',
+          pointBackgroundColor: '#DC2626',
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          borderWidth: 2,
+          tension: 0.3,
+          yAxisID: 'y1',
+          order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: '#64748B', font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: function(c) {
+              if (c.dataset.label === 'Avg Balance') return 'Avg: ' + fmt(c.parsed.y);
+              return 'Total: ' + fmt(c.parsed.y);
+            }
+          }
+        }
+      },
+      scales: {
+        y: { ticks: { callback: fmtK }, grid: { color: '#E8EEFF' }, title: { display: true, text: 'Total $', font: { size: 10 }, color: '#64748B' } },
+        y1: { position: 'right', ticks: { callback: function(v) { return '$' + Math.round(v); }, color: '#DC2626', font: { size: 10 } }, grid: { display: false }, title: { display: true, text: 'Avg Balance', color: '#DC2626', font: { size: 10 } } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+} // end buildDashboard
+
+/* ================================================================
+   11. ROI CALCULATOR
+   ================================================================ */
+
+function updateROI() {
+  var d = window._roiData;
+  if (!d) return;
+
+  var costPerOffice = parseFloat(document.getElementById('roiCostInput').value) || 0;
+  var LETTER_COST = 0.96;
+
+  // Pro-rated cost based on how many months each office was active
+  var totalCost = costPerOffice * d.totalOfficeMonths;
+  var letterCost = d.totalLetters * LETTER_COST;
+  var totalCostWithLetters = totalCost + letterCost;
+
+  var arReduction = d.ppTotal;
+  var fees = d.totalFees || 0;
+
+  // Net return = AR reduction - Pearly subscription - Letter costs - Processing fees
+  var netReturn = arReduction - totalCostWithLetters - fees;
+  var roi = totalCostWithLetters > 0
+    ? ((arReduction - totalCostWithLetters - fees) / totalCostWithLetters * 100)
+    : 0;
+  var multiplier = totalCostWithLetters > 0
+    ? (arReduction / (totalCostWithLetters + fees))
+    : 0;
+  var costPerNotification = (d.totalLetters > 0) ? letterCost / d.totalLetters : 0;
+
+  var grid = document.getElementById('roiGrid');
+  grid.innerHTML =
+    '<div class="roi-card"><div class="card-label">Pearly Subscription</div>' +
+    '<div class="card-value">' + fmt(totalCost) + '</div>' +
+    '<div class="card-sub">$' + costPerOffice.toLocaleString() + '/mo × ' + d.totalOfficeMonths + ' office-months</div></div>' +
+
+    '<div class="roi-card"><div class="card-label">Letter Costs</div>' +
+    '<div class="card-value">' + fmt(letterCost) + '</div>' +
+    '<div class="card-sub">' + fmtN(d.totalLetters) + ' letters × $' + LETTER_COST.toFixed(0) + '</div></div>' +
+
+    '<div class="roi-card"><div class="card-label">Processing Fees</div>' +
+    '<div class="card-value">' + fmt(fees) + '</div>' +
+    '<div class="card-sub">From processed payments</div></div>' +
+
+    '<div class="roi-card"><div class="card-label">A/R Reduction</div>' +
+    '<div class="card-value">' + fmt(arReduction) + '</div>' +
+    '<div class="card-sub">Total collected via Pearly</div></div>' +
+
+    '<div class="roi-card"><div class="card-label">Net Return</div>' +
+    '<div class="card-value ' + (netReturn >= 0 ? 'green' : 'red') + '">' + fmt(netReturn) + '</div>' +
+    '<div class="card-sub">A/R − Subscription − Letters − Fees</div></div>' +
+
+    '<div class="roi-card"><div class="card-label">ROI</div>' +
+    '<div class="card-value ' + (multiplier >= 1 ? 'green' : 'red') + '">' + multiplier.toFixed(1) + '×</div>' +
+    '<div class="card-sub">Every $1 in costs returns $' + multiplier.toFixed(0) + '</div></div>' +
+
+    '<div class="roi-card"><div class="card-label">Cost per Letter</div>' +
+    '<div class="card-value">' + fmt(costPerNotification) + '</div>' +
+    '<div class="card-sub">Fixed at $' + LETTER_COST.toFixed(0) + ' per letter</div></div>';
+}
+
+/* ================================================================
+   12. PDF DOWNLOAD
+   ================================================================ */
+
+function downloadOverviewPDF() {
+  var btn = document.getElementById('downloadPdfBtn');
+  var newBtn = document.getElementById('newFileBtn');
+  var anonBtn = document.getElementById('anonBtn');
+
+  btn.style.display = 'none';
+  if (newBtn) newBtn.style.display = 'none';
+  if (anonBtn) anonBtn.style.display = 'none';
+
+  window.print();
+
+  setTimeout(function() {
+    btn.style.display = 'flex';
+    if (newBtn) newBtn.style.display = '';
+    if (anonBtn) anonBtn.style.display = '';
+  }, 500);
+}
+</script>
+</body>
+</html>
