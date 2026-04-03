@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pearly — AR & Balance Analysis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #0041C0;
+  --accent: #335EEA;
+  --light: #8EA9FF;
+  --lighter: #C2D7FF;
+  --bg: #EFF4FF;
+  --body: #1E2D4A;
+  --muted: #6B7A99;
+  --white: #FFFFFF;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --surface: #F8FAFF;
+  --dpd-0: #C2D7FF;
+  --dpd-1: #8EA9FF;
+  --dpd-2: #335EEA;
+  --dpd-3: #0041C0;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  background: var(--surface);
+  color: var(--body);
+  min-height: 100vh;
+}
+
+/* Upload Screen */
+#upload-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px 24px;
+}
+.upload-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.upload-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+.upload-header p {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 480px;
+}
+.drop-zone {
+  width: 100%;
+  max-width: 520px;
+  padding: 60px 40px;
+  border: 2px dashed var(--lighter);
+  border-radius: 16px;
+  background: var(--white);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--accent);
+  background: var(--bg);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,65,192,0.08);
+}
+.drop-zone svg { margin-bottom: 16px; }
+.drop-zone h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--body);
+  margin-bottom: 6px;
+}
+.drop-zone p {
+  font-size: 13px;
+  color: var(--muted);
+}
+.drop-zone input { display: none; }
+.upload-note {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.upload-note svg { flex-shrink: 0; }
+
+/* Dashboard */
+#dashboard { display: none; padding: 28px 24px; max-width: 1200px; margin: 0 auto; }
+.dash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.dash-header-left { display: flex; align-items: center; gap: 10px; }
+.dash-header-left .bar {
+  width: 6px;
+  height: 32px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--primary), var(--accent));
+}
+.dash-header h1 { font-size: 20px; font-weight: 700; color: var(--primary); }
+.dash-header .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.btn-new {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--lighter);
+  background: var(--white);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.btn-new:hover { border-color: var(--accent); color: var(--accent); }
+
+/* KPI Cards */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.kpi {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--lighter);
+}
+.kpi.highlight {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  border: none;
+}
+.kpi-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.kpi.highlight .kpi-label { color: rgba(255,255,255,0.6); }
+.kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--body);
+  line-height: 1.1;
+}
+.kpi.highlight .kpi-value { color: #fff; }
+.kpi-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.kpi.highlight .kpi-sub { color: rgba(255,255,255,0.55); }
+
+/* Cards */
+.card {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--lighter);
+  margin-bottom: 16px;
+}
+.card h2 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--body);
+  margin-bottom: 16px;
+}
+.card h2 span {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Two-column layout */
+.row { display: flex; gap: 16px; margin-bottom: 16px; }
+.row > .card { flex: 1; margin-bottom: 0; min-width: 0; }
+@media (max-width: 768px) { .row { flex-direction: column; } }
+
+/* Progress bars */
+.status-row { margin-bottom: 14px; }
+.status-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.status-name { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.status-dot { width: 8px; height: 8px; border-radius: 4px; flex-shrink: 0; }
+.status-info { font-size: 11px; color: var(--muted); }
+.status-bar { height: 7px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.status-fill { height: 100%; border-radius: 4px; }
+.status-summary {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.status-summary-row { display: flex; justify-content: space-between; font-size: 12px; }
+
+/* Aging list */
+.aging-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  margin-bottom: 6px;
+  border-radius: 6px;
+}
+.aging-item.highlight-row { background: var(--bg); }
+.aging-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.aging-label { font-size: 12px; flex: 1; }
+.aging-right { text-align: right; }
+.aging-count { font-size: 12px; font-weight: 700; }
+.aging-avg { font-size: 10px; color: var(--muted); }
+
+/* Comparison cards */
+.comp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.comp-card {
+  padding: 14px;
+  background: var(--bg);
+  border-radius: 10px;
+  border-left: 4px solid var(--accent);
+}
+.comp-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 5px; }
+.comp-value { font-size: 22px; font-weight: 700; color: var(--body); }
+.comp-sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+/* Office table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead tr { border-bottom: 2px solid var(--lighter); }
+th {
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-align: right;
+}
+th:first-child { text-align: left; }
+td { padding: 7px 10px; text-align: right; }
+td:first-child { text-align: left; font-weight: 600; }
+tbody tr { border-bottom: 1px solid var(--bg); }
+tbody tr:hover { background: var(--bg); }
+.pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 11px;
+}
+.pill-green { background: #10B98118; color: var(--success); }
+.pill-yellow { background: #F59E0B18; color: var(--warning); }
+.pill-red { background: #EF444418; color: var(--danger); }
+
+/* Chart containers */
+.chart-container { position: relative; width: 100%; }
+.chart-container canvas { width: 100% !important; }
+
+/* Dist pills */
+.dist-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.dist-pill {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--bg);
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+.dist-pill strong { color: var(--body); }
+
+/* Legend */
+.legend { display: flex; gap: 20px; justify-content: center; margin-top: 10px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+/* Loading */
+.loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div id="upload-screen">
+  <div class="upload-header">
+    <h1>AR & Balance Analysis</h1>
+    <p>Upload a Pearly Payments Report (.xlsx) to generate an interactive AR breakdown with per-office recovery ratios.</p>
+  </div>
+  <div class="drop-zone" id="dropZone">
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="12" fill="#EFF4FF"/>
+      <path d="M24 16v16m-8-8h16" stroke="#335EEA" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+    <h3>Drop your Pearly report here</h3>
+    <p>or click to browse — .xlsx files only</p>
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
+  </div>
+  <div class="upload-note">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="#6B7A99" stroke-width="1.2"/><path d="M7 6v4M7 4.5v.01" stroke="#6B7A99" stroke-width="1.2" stroke-linecap="round"/></svg>
+    All processing happens in your browser — no data is transmitted.
+  </div>
+</div>
+
+<div id="dashboard">
+  <div class="dash-header">
+    <div class="dash-header-left">
+      <div class="bar"></div>
+      <div>
+        <h1 id="groupName">AR & Balance Analysis</h1>
+        <div class="sub" id="reportSub">Active Statuses Only (Engaged, Follow Up, Scheduled)</div>
+      </div>
+    </div>
+    <button class="btn-new" onclick="resetUpload()">Upload New File</button>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <!-- AR Status + Aging -->
+  <div class="row">
+    <div class="card" id="statusCard" style="flex:1.3">
+      <h2>AR by Status</h2>
+      <div id="statusBars"></div>
+      <div class="status-summary" id="statusSummary"></div>
+    </div>
+    <div class="card" style="flex:0.7">
+      <h2>Aging Breakdown</h2>
+      <div class="chart-container" style="height:170px"><canvas id="agingChart"></canvas></div>
+      <div id="agingList"></div>
+    </div>
+  </div>
+
+  <!-- Balance Distribution -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin-bottom:0">Balance Size Distribution <span>(Active Statuses Only)</span></h2>
+      <span id="distNote" style="font-size:12px;color:var(--muted);background:var(--bg);padding:4px 12px;border-radius:20px"></span>
+    </div>
+    <div class="chart-container" style="height:220px"><canvas id="distChart"></canvas></div>
+    <div class="dist-pills" id="distPills"></div>
+  </div>
+
+  <!-- Payment vs Balance Comparison -->
+  <div class="card">
+    <h2>Payment vs Balance Comparison</h2>
+    <div class="comp-grid" id="compGrid"></div>
+  </div>
+
+  <!-- Per-Office Breakdown -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <h2 style="margin-bottom:0">Per-Office Payment vs Balance</h2>
+      <span style="font-size:12px;color:var(--muted);background:var(--bg);padding:4px 12px;border-radius:20px">Sorted by recovery ratio — Active statuses only</span>
+    </div>
+    <div class="chart-container" style="height:0" id="officeChartWrap"><canvas id="officeChart"></canvas></div>
+    <div class="legend" style="margin-bottom:16px">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--lighter)"></div>Avg Balance</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--success)"></div>Avg Payment</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Office</th><th>AR Patients</th><th>Avg Balance</th><th>Payments</th><th>Avg Payment</th><th>Recovery</th></tr></thead>
+        <tbody id="officeTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:20px;font-size:11px;color:var(--muted)" id="footer"></div>
+</div>
+
+<script>
+const ACTIVE_STATUSES = new Set(['Engaged', 'Follow Up', 'Scheduled']);
+const DPD_COLORS = ['#C2D7FF','#8EA9FF','#335EEA','#0041C0'];
+const STATUS_COLORS = { Engaged:'#10B981', Outstanding:'#F59E0B', Blocked:'#EF4444', 'Follow Up':'#335EEA', Scheduled:'#C2D7FF' };
+
+let agingChartInst = null, distChartInst = null, officeChartInst = null;
+
+// File upload
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => { if(e.target.files[0]) processFile(e.target.files[0]); });
+
+function resetUpload() {
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  fileInput.value = '';
+  if(agingChartInst) { agingChartInst.destroy(); agingChartInst = null; }
+  if(distChartInst) { distChartInst.destroy(); distChartInst = null; }
+  if(officeChartInst) { officeChartInst.destroy(); officeChartInst = null; }
+}
+
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const data = parseWorkbook(wb);
+      renderDashboard(data);
+      document.getElementById('upload-screen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+    } catch(err) {
+      alert('Error parsing file: ' + err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseWorkbook(wb) {
+  // Find AR Status Report sheet
+  const arSheetName = wb.SheetNames.find(s => s.toLowerCase().includes('ar status'));
+  const ppSheetName = wb.SheetNames.find(s => s.toLowerCase().includes('processed for posting'));
+
+  if (!arSheetName) throw new Error('Could not find "AR Status Report" sheet');
+
+  // Parse AR sheet
+  const arSheet = XLSX.utils.sheet_to_json(wb.Sheets[arSheetName], { header: 1 });
+  // Find header row
+  let arHeaderIdx = -1;
+  for (let i = 0; i < Math.min(arSheet.length, 10); i++) {
+    if (arSheet[i] && arSheet[i][0] && String(arSheet[i][0]).toLowerCase().includes('office')) {
+      arHeaderIdx = i; break;
+    }
+  }
+  if (arHeaderIdx === -1) throw new Error('Could not find header row in AR Status Report');
+
+  const arHeaders = arSheet[arHeaderIdx].map(h => String(h || '').trim());
+  const officeCol = arHeaders.findIndex(h => /^office$/i.test(h));
+  const statusCol = arHeaders.findIndex(h => /ar status/i.test(h));
+  const balanceCol = arHeaders.findIndex(h => /patient balance/i.test(h));
+  const agingCol = arHeaders.findIndex(h => /aging bucket/i.test(h));
+
+  // Get group name from row 0
+  let groupName = '';
+  if (arSheet[0] && arSheet[0][1]) groupName = String(arSheet[0][1]);
+  let asOfDate = '';
+  if (arSheet[2] && arSheet[2][1]) asOfDate = String(arSheet[2][1]);
+
+  // Parse AR rows
+  const arRows = [];
+  for (let i = arHeaderIdx + 1; i < arSheet.length; i++) {
+    const row = arSheet[i];
+    if (!row || !row[officeCol]) continue;
+    const bal = parseFloat(row[balanceCol]);
+    if (isNaN(bal) || bal <= 0) continue;
+    arRows.push({
+      office: String(row[officeCol]).trim(),
+      status: String(row[statusCol] || '').trim(),
+      balance: bal,
+      aging: String(row[agingCol] || '').trim(),
+    });
+  }
+
+  // Parse payments sheet
+  let pmtRows = [];
+  if (ppSheetName) {
+    const ppSheet = XLSX.utils.sheet_to_json(wb.Sheets[ppSheetName], { header: 1 });
+    let ppHeaderIdx = -1;
+    for (let i = 0; i < Math.min(ppSheet.length, 10); i++) {
+      if (ppSheet[i] && ppSheet[i][0] && String(ppSheet[i][0]).toLowerCase().includes('office')) {
+        ppHeaderIdx = i; break;
+      }
+    }
+    if (ppHeaderIdx !== -1) {
+      const ppHeaders = ppSheet[ppHeaderIdx].map(h => String(h || '').trim());
+      const ppOfficeCol = ppHeaders.findIndex(h => /^office$/i.test(h));
+      const ppAmtCol = ppHeaders.findIndex(h => /processed amount/i.test(h));
+      for (let i = ppHeaderIdx + 1; i < ppSheet.length; i++) {
+        const row = ppSheet[i];
+        if (!row || !row[ppOfficeCol]) continue;
+        const amt = parseFloat(row[ppAmtCol]);
+        if (isNaN(amt) || amt <= 0) continue;
+        pmtRows.push({ office: String(row[ppOfficeCol]).trim(), amount: amt });
+      }
+    }
+  }
+
+  return { arRows, pmtRows, groupName, asOfDate };
+}
+
+function computeStats(data) {
+  const { arRows, pmtRows, groupName, asOfDate } = data;
+
+  // All AR status breakdown
+  const statusMap = {};
+  arRows.forEach(r => {
+    if (!statusMap[r.status]) statusMap[r.status] = { count: 0, sum: 0 };
+    statusMap[r.status].count++;
+    statusMap[r.status].sum += r.balance;
+  });
+
+  // Active-only
+  const active = arRows.filter(r => ACTIVE_STATUSES.has(r.status));
+  const balances = active.map(r => r.balance);
+  balances.sort((a, b) => a - b);
+  const totalAR = balances.reduce((s, v) => s + v, 0);
+  const avgBal = totalAR / balances.length;
+  const medBal = balances.length % 2 === 0
+    ? (balances[balances.length / 2 - 1] + balances[balances.length / 2]) / 2
+    : balances[Math.floor(balances.length / 2)];
+  const minBal = balances[0];
+  const maxBal = balances[balances.length - 1];
+  const variance = balances.reduce((s, v) => s + (v - avgBal) ** 2, 0) / (balances.length - 1);
+  const stdDev = Math.sqrt(variance);
+
+  // Payment stats
+  const pmtAmounts = pmtRows.map(r => r.amount);
+  pmtAmounts.sort((a, b) => a - b);
+  const avgPmt = pmtAmounts.length ? pmtAmounts.reduce((s, v) => s + v, 0) / pmtAmounts.length : 0;
+  const medPmt = pmtAmounts.length
+    ? (pmtAmounts.length % 2 === 0
+      ? (pmtAmounts[pmtAmounts.length / 2 - 1] + pmtAmounts[pmtAmounts.length / 2]) / 2
+      : pmtAmounts[Math.floor(pmtAmounts.length / 2)])
+    : 0;
+
+  // Aging (all statuses)
+  const agingMap = {};
+  arRows.forEach(r => {
+    const bucket = r.aging || 'Unknown';
+    if (!agingMap[bucket]) agingMap[bucket] = { count: 0, sum: 0 };
+    agingMap[bucket].count++;
+    agingMap[bucket].sum += r.balance;
+  });
+
+  // Balance distribution (active only)
+  const distBuckets = [
+    { range: '<$25', min: 0, max: 25, count: 0 },
+    { range: '$25-50', min: 25, max: 50, count: 0 },
+    { range: '$50-100', min: 50, max: 100, count: 0 },
+    { range: '$100-250', min: 100, max: 250, count: 0 },
+    { range: '$250-500', min: 250, max: 500, count: 0 },
+    { range: '$500-1K', min: 500, max: 1000, count: 0 },
+    { range: '>$1K', min: 1000, max: Infinity, count: 0 },
+  ];
+  balances.forEach(b => {
+    for (const d of distBuckets) {
+      if (b >= d.min && b < d.max) { d.count++; break; }
+    }
+  });
+
+  // Per-office (active AR only vs all payments)
+  const arByOffice = {};
+  active.forEach(r => {
+    if (!arByOffice[r.office]) arByOffice[r.office] = { count: 0, sum: 0 };
+    arByOffice[r.office].count++;
+    arByOffice[r.office].sum += r.balance;
+  });
+  const pmtByOffice = {};
+  pmtRows.forEach(r => {
+    if (!pmtByOffice[r.office]) pmtByOffice[r.office] = { count: 0, sum: 0 };
+    pmtByOffice[r.office].count++;
+    pmtByOffice[r.office].sum += r.amount;
+  });
+
+  const officeCompare = Object.keys(arByOffice).map(office => {
+    const ar = arByOffice[office];
+    const pm = pmtByOffice[office] || { count: 0, sum: 0 };
+    const arAvg = ar.sum / ar.count;
+    const pmAvg = pm.count > 0 ? pm.sum / pm.count : 0;
+    const ratio = arAvg > 0 ? (pmAvg / arAvg) * 100 : 0;
+    return {
+      office: office.replace(/^Gentle Dental\s*/i, ''),
+      arCount: ar.count, arTotal: ar.sum, arAvg,
+      pmtCount: pm.count, pmtTotal: pm.sum, pmtAvg: pmAvg,
+      ratio,
+    };
+  }).sort((a, b) => b.ratio - a.ratio);
+
+  // Active vs inactive totals
+  const activeCount = active.length;
+  const inactiveCount = arRows.length - activeCount;
+
+  return {
+    groupName, asOfDate,
+    totalAR, avgBal, medBal, minBal, maxBal, stdDev,
+    patientCount: balances.length,
+    avgPmt, medPmt, pmtCount: pmtAmounts.length,
+    statusMap, agingMap, distBuckets,
+    officeCompare,
+    activeCount, inactiveCount,
+    totalPatients: arRows.length,
+  };
+}
+
+function fmt(v) { return '$' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtShort(v) {
+  if (v >= 1000000) return '$' + (v / 1000000).toFixed(2) + 'M';
+  if (v >= 1000) return '$' + (v / 1000).toFixed(0) + 'K';
+  return '$' + v.toFixed(0);
+}
+
+function renderDashboard(data) {
+  const s = computeStats(data);
+
+  // Header
+  document.getElementById('groupName').textContent = (s.groupName || 'Group') + ' — AR & Balance Analysis';
+  document.getElementById('reportSub').textContent =
+    'Active Statuses Only (Engaged, Follow Up, Scheduled)' + (s.asOfDate ? ' — as of ' + s.asOfDate : '');
+
+  // KPIs
+  const recoveryRatio = s.avgBal > 0 ? ((s.avgPmt / s.avgBal) * 100).toFixed(1) : '—';
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi highlight">
+      <div class="kpi-label">Active AR</div>
+      <div class="kpi-value">${fmtShort(s.totalAR)}</div>
+      <div class="kpi-sub">${s.patientCount.toLocaleString()} patients</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Avg Balance</div>
+      <div class="kpi-value">${fmt(s.avgBal)}</div>
+      <div class="kpi-sub">Median: ${fmt(s.medBal)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Min / Max</div>
+      <div class="kpi-value">$${s.minBal.toFixed(0)} / $${s.maxBal.toLocaleString()}</div>
+      <div class="kpi-sub">Std Dev: ${fmt(s.stdDev)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Pmt vs Balance</div>
+      <div class="kpi-value">${recoveryRatio}%</div>
+      <div class="kpi-sub">Avg pmt ${fmt(s.avgPmt)} / Avg bal ${fmt(s.avgBal)}</div>
+    </div>
+  `;
+
+  // AR Status bars
+  const statusOrder = ['Engaged','Outstanding','Blocked','Follow Up','Scheduled'];
+  const maxStatusCount = Math.max(...Object.values(s.statusMap).map(v => v.count));
+  let statusHTML = '';
+  statusOrder.forEach(name => {
+    const d = s.statusMap[name];
+    if (!d) return;
+    const pct = (d.count / maxStatusCount) * 100;
+    const color = STATUS_COLORS[name] || '#999';
+    statusHTML += `
+      <div class="status-row">
+        <div class="status-top">
+          <div class="status-name"><div class="status-dot" style="background:${color}"></div>${name}</div>
+          <div class="status-info">${d.count.toLocaleString()} patients · ${fmtShort(d.sum)} · Avg ${fmt(d.sum / d.count)}</div>
+        </div>
+        <div class="status-bar"><div class="status-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>
+    `;
+  });
+  document.getElementById('statusBars').innerHTML = statusHTML;
+
+  const activePct = ((s.activeCount / s.totalPatients) * 100).toFixed(1);
+  const inactivePct = ((s.inactiveCount / s.totalPatients) * 100).toFixed(1);
+  document.getElementById('statusSummary').innerHTML = `
+    <div class="status-summary-row">
+      <span style="color:var(--muted)">Engaged + Follow Up + Scheduled</span>
+      <span style="font-weight:700;color:var(--success)">${s.activeCount.toLocaleString()} patients (${activePct}%)</span>
+    </div>
+    <div class="status-summary-row">
+      <span style="color:var(--muted)">Outstanding + Blocked</span>
+      <span style="font-weight:700;color:var(--danger)">${s.inactiveCount.toLocaleString()} patients (${inactivePct}%)</span>
+    </div>
+  `;
+
+  // Aging chart + list
+  const agingOrder = ['<30','30-60','60-90','90+'];
+  const agingLabels = ['<30 days','30–60 days','60–90 days','90+ days'];
+  const agingCounts = agingOrder.map(k => (s.agingMap[k] || { count: 0 }).count);
+
+  if (agingChartInst) agingChartInst.destroy();
+  agingChartInst = new Chart(document.getElementById('agingChart'), {
+    type: 'doughnut',
+    data: {
+      labels: agingLabels,
+      datasets: [{ data: agingCounts, backgroundColor: DPD_COLORS, borderColor: '#fff', borderWidth: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '55%',
+      plugins: { legend: { display: false } },
+    }
+  });
+
+  let agingListHTML = '';
+  agingOrder.forEach((k, i) => {
+    const d = s.agingMap[k] || { count: 0, sum: 0 };
+    const avg = d.count > 0 ? fmt(d.sum / d.count) : '—';
+    agingListHTML += `
+      <div class="aging-item ${i === 3 ? 'highlight-row' : ''}">
+        <div class="aging-dot" style="background:${DPD_COLORS[i]}"></div>
+        <div class="aging-label" style="font-weight:${i===3?700:400}">${agingLabels[i]}</div>
+        <div class="aging-right">
+          <div class="aging-count">${d.count.toLocaleString()}</div>
+          <div class="aging-avg">Avg ${avg}</div>
+        </div>
+      </div>
+    `;
+  });
+  document.getElementById('agingList').innerHTML = agingListHTML;
+
+  // Balance distribution chart
+  const under250 = s.distBuckets.slice(0, 4).reduce((a, b) => a + b.count, 0);
+  const under250Pct = ((under250 / s.patientCount) * 100).toFixed(1);
+  document.getElementById('distNote').textContent = `${under250Pct}% of balances under $250`;
+
+  if (distChartInst) distChartInst.destroy();
+  distChartInst = new Chart(document.getElementById('distChart'), {
+    type: 'bar',
+    data: {
+      labels: s.distBuckets.map(d => d.range),
+      datasets: [{
+        data: s.distBuckets.map(d => d.count),
+        backgroundColor: [...DPD_COLORS, '#335EEA', '#0041C0', '#1E2D4A'],
+        borderRadius: 6,
+        barPercentage: 0.7,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#6B7A99', font: { size: 11 } } },
+        y: { grid: { color: '#E8EDF5' }, ticks: { color: '#6B7A99', font: { size: 10 } } },
+      }
+    }
+  });
+
+  let distPillsHTML = '';
+  s.distBuckets.forEach(d => {
+    const pct = ((d.count / s.patientCount) * 100).toFixed(1);
+    distPillsHTML += `<span class="dist-pill">${d.range}: <strong>${pct}%</strong></span>`;
+  });
+  document.getElementById('distPills').innerHTML = distPillsHTML;
+
+  // Comparison cards
+  const medRatio = s.medBal > 0 ? ((s.medPmt / s.medBal) * 100).toFixed(1) : '—';
+  document.getElementById('compGrid').innerHTML = `
+    <div class="comp-card" style="border-left-color:var(--success)">
+      <div class="comp-label">Avg Payment</div><div class="comp-value">${fmt(s.avgPmt)}</div><div class="comp-sub">Median ${fmt(s.medPmt)}</div>
+    </div>
+    <div class="comp-card" style="border-left-color:var(--warning)">
+      <div class="comp-label">Avg Balance</div><div class="comp-value">${fmt(s.avgBal)}</div><div class="comp-sub">Median ${fmt(s.medBal)}</div>
+    </div>
+    <div class="comp-card" style="border-left-color:var(--accent)">
+      <div class="comp-label">Recovery Ratio</div><div class="comp-value">${recoveryRatio}%</div><div class="comp-sub">Avg pmt ÷ Avg bal</div>
+    </div>
+    <div class="comp-card" style="border-left-color:var(--primary)">
+      <div class="comp-label">Median Ratio</div><div class="comp-value">${medRatio}%</div><div class="comp-sub">Med pmt ÷ Med bal</div>
+    </div>
+  `;
+
+  // Office chart + table
+  const officeTop = s.officeCompare.slice(0, 30);
+  const chartWrap = document.getElementById('officeChartWrap');
+  chartWrap.style.height = Math.max(300, officeTop.length * 24) + 'px';
+
+  if (officeChartInst) officeChartInst.destroy();
+  officeChartInst = new Chart(document.getElementById('officeChart'), {
+    type: 'bar',
+    data: {
+      labels: officeTop.map(o => o.office),
+      datasets: [
+        { label: 'Avg Balance', data: officeTop.map(o => o.arAvg), backgroundColor: '#C2D7FF', borderRadius: 4, barPercentage: 0.7, categoryPercentage: 0.8 },
+        { label: 'Avg Payment', data: officeTop.map(o => o.pmtAvg), backgroundColor: '#10B981', borderRadius: 4, barPercentage: 0.7, categoryPercentage: 0.8 },
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: {
+          afterBody: function(ctx) {
+            const o = officeTop[ctx[0].dataIndex];
+            return 'Recovery: ' + o.ratio.toFixed(1) + '%\n' + o.arCount + ' AR patients / ' + o.pmtCount + ' payments';
+          }
+        }
+      }},
+      scales: {
+        x: { grid: { color: '#E8EDF5' }, ticks: { color: '#6B7A99', font: { size: 10 }, callback: v => '$' + v } },
+        y: { grid: { display: false }, ticks: { color: '#1E2D4A', font: { size: 11 } } },
+      }
+    }
+  });
+
+  let tableHTML = '';
+  officeTop.forEach(o => {
+    const pillClass = o.ratio >= 55 ? 'pill-green' : o.ratio >= 40 ? 'pill-yellow' : 'pill-red';
+    tableHTML += `<tr>
+      <td>${o.office}</td>
+      <td>${o.arCount.toLocaleString()}</td>
+      <td>${fmt(o.arAvg)}</td>
+      <td>${o.pmtCount.toLocaleString()}</td>
+      <td>${o.pmtAvg > 0 ? fmt(o.pmtAvg) : '—'}</td>
+      <td><span class="pill ${pillClass}">${o.ratio.toFixed(1)}%</span></td>
+    </tr>`;
+  });
+  document.getElementById('officeTableBody').innerHTML = tableHTML;
+
+  document.getElementById('footer').textContent =
+    'Pearly Payments Report — ' + (s.groupName || 'Report') + ' — Generated ' + new Date().toLocaleDateString();
+}
+</script>
+</body>
+</html>
