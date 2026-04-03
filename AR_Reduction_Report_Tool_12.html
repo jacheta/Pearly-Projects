@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AR Reduction Report</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue-deep: #0041C0;
+    --blue-accent: #335EEA;
+    --blue-mid: #8EA9FF;
+    --blue-light: #C2D7FF;
+    --blue-wash: #EFF4FF;
+    --navy: #1E2D4A;
+    --slate: #64748B;
+    --bg: #F8FAFD;
+    --white: #FFFFFF;
+    --border: #E2E8F0;
+    --shadow: 0 1px 3px rgba(30,45,74,0.06), 0 1px 2px rgba(30,45,74,0.04);
+    --shadow-lg: 0 4px 24px rgba(30,45,74,0.08);
+    --green: #10B981;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    background: var(--bg); color: var(--navy);
+    line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  .header {
+    background: linear-gradient(135deg, var(--blue-deep) 0%, #002D8A 100%);
+    padding: 48px 0 40px; position: relative; overflow: hidden;
+  }
+  .header::before {
+    content: ''; position: absolute; top: -80px; right: -120px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 32px; position: relative; }
+  .header-content { display: flex; justify-content: space-between; align-items: flex-end; }
+  .header h1 { font-size: 28px; font-weight: 700; color: var(--white); letter-spacing: -0.5px; }
+  .header .subtitle { font-size: 14px; color: var(--blue-light); margin-top: 6px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+  .header .period {
+    font-family: 'DM Mono', monospace; font-size: 13px; color: var(--blue-mid);
+    background: rgba(255,255,255,0.08); padding: 8px 16px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    margin-top: -28px; position: relative; z-index: 2;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .upload-card {
+    background: var(--white); border-radius: 12px; padding: 28px;
+    box-shadow: var(--shadow-lg); border: 2px dashed var(--border);
+    text-align: center; cursor: pointer; transition: all 0.2s;
+  }
+  .upload-card:hover { border-color: var(--blue-accent); background: var(--blue-wash); }
+  .upload-card.loaded { border-color: var(--green); border-style: solid; cursor: default; }
+  .upload-card input { display: none; }
+  .upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-label { font-size: 14px; font-weight: 600; color: var(--navy); }
+  .upload-hint { font-size: 12px; color: var(--slate); margin-top: 4px; }
+  .upload-file { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--green); margin-top: 8px; word-break: break-all; }
+
+  .run-btn {
+    display: block; margin: 24px auto 0; padding: 14px 48px;
+    background: linear-gradient(135deg, var(--blue-deep), var(--blue-accent));
+    color: white; border: none; border-radius: 10px;
+    font-family: 'DM Sans'; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px;
+  }
+  .run-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,65,192,0.3); }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .status { text-align: center; margin-top: 12px; font-size: 13px; color: var(--slate); min-height: 20px; }
+  .status.error { color: #EF4444; }
+
+  /* Report (hidden until generated) */
+  #report { display: none; }
+  #uploadSection .post-gen { display: none; }
+  #uploadSection.generated .pre-gen { display: none; }
+  #uploadSection.generated .post-gen { display: block; }
+
+  /* KPI cards */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 32px; }
+  .kpi {
+    background: var(--white); border-radius: 12px; padding: 24px;
+    box-shadow: var(--shadow-lg); border: 1px solid var(--border);
+  }
+  .kpi.highlight { background: linear-gradient(135deg, var(--blue-deep), var(--blue-accent)); border: none; }
+  .kpi.highlight .kpi-label, .kpi.highlight .kpi-value, .kpi.highlight .kpi-sub { color: var(--white); }
+  .kpi.highlight .kpi-label { opacity: 0.8; }
+  .kpi-label { font-size: 12px; font-weight: 600; color: var(--slate); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .kpi-value { font-size: 28px; font-weight: 700; color: var(--navy); letter-spacing: -1px; font-family: 'DM Mono', monospace; }
+  .kpi-sub { font-size: 12px; color: var(--slate); margin-top: 4px; }
+
+  .section { margin-top: 40px; }
+  .section-title { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+  .section-desc { font-size: 13px; color: var(--slate); margin-bottom: 20px; }
+  .card { background: var(--white); border-radius: 12px; padding: 28px; box-shadow: var(--shadow); border: 1px solid var(--border); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .chart-title { font-size: 14px; font-weight: 600; color: var(--navy); margin-bottom: 16px; }
+  .chart-wrap { position: relative; }
+
+  .callout {
+    background: var(--blue-wash); border-left: 3px solid var(--blue-accent);
+    padding: 16px 20px; border-radius: 0 8px 8px 0; margin-top: 20px;
+    font-size: 13px; color: var(--navy); line-height: 1.6;
+  }
+  .callout strong { color: var(--blue-deep); }
+
+  .legend-row { display: flex; gap: 20px; margin-bottom: 16px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--slate); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  /* Table */
+  .office-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+  .office-table th {
+    text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600;
+    color: var(--slate); text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border); white-space: nowrap;
+    position: sticky; top: 0; background: var(--white); z-index: 1;
+  }
+  .office-table th:not(:first-child) { text-align: right; }
+  .office-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--navy); }
+  .office-table td:not(:first-child) { text-align: right; font-family: 'DM Mono', monospace; font-size: 12px; }
+  .office-table tr:last-child td { border-bottom: none; }
+  .office-table tr:hover td { background: var(--blue-wash); }
+  .table-scroll { max-height: 600px; overflow-y: auto; }
+  .office-name { font-weight: 600; }
+  .bar-cell { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .mini-bar { width: 60px; height: 6px; background: var(--blue-wash); border-radius: 3px; overflow: hidden; }
+  .mini-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--blue-accent), var(--blue-deep)); }
+
+  .footer { margin-top: 48px; padding: 24px 0; border-top: 1px solid var(--border); font-size: 11px; color: var(--slate); text-align: center; }
+
+  @media (max-width: 768px) {
+    .kpi-row, .grid-2, .grid-3, .upload-zone { grid-template-columns: 1fr; }
+    .header-content { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="container">
+    <div class="header-content">
+      <div>
+        <h1 id="reportTitle">AR Reduction Report</h1>
+        <div class="subtitle">Patient Billing Automation Impact</div>
+      </div>
+      <div class="period" id="periodLabel">Upload two reports to begin</div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div id="uploadSection">
+    <div class="upload-zone pre-gen">
+      <div class="upload-card" id="card1" onclick="document.getElementById('file1').click()">
+        <input type="file" id="file1" accept=".xlsx,.xls" onchange="handleFile(this, 1)">
+        <div class="upload-icon">📄</div>
+        <div class="upload-label">Older Report (Baseline)</div>
+        <div class="upload-hint">The starting point — AR from this date will be tracked</div>
+        <div class="upload-file" id="file1name"></div>
+      </div>
+      <div class="upload-card" id="card2" onclick="document.getElementById('file2').click()">
+        <input type="file" id="file2" accept=".xlsx,.xls" onchange="handleFile(this, 2)">
+        <div class="upload-icon">📄</div>
+        <div class="upload-label">Newer Report (Current)</div>
+        <div class="upload-hint">The follow-up — used to check what's been collected or resolved</div>
+        <div class="upload-file" id="file2name"></div>
+      </div>
+    </div>
+    <div class="post-gen" style="text-align:center; margin-top: -20px;">
+      <button class="run-btn" onclick="resetAll()" style="background: var(--white); color: var(--navy); border: 1px solid var(--border);">↻ Upload New Reports</button>
+    </div>
+    <button class="run-btn pre-gen" id="runBtn" disabled onclick="runAnalysis()">Generate Report</button>
+    <div class="status pre-gen" id="status"></div>
+  </div>
+
+  <div id="report">
+    <div class="kpi-row" id="kpiRow"></div>
+
+    <div class="section">
+      <div class="section-title">Where Did the AR Go?</div>
+      <div class="section-desc">Tracking every dollar of engageable baseline AR through the Pearly funnel to its current disposition</div>
+      <div class="card">
+        <div class="chart-title" id="waterfallTitle">Engageable AR Flow</div>
+        <div style="height:340px"><canvas id="waterfallChart"></canvas></div>
+      </div>
+      <div class="callout" id="callout1"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Disposition & Aging</div>
+      <div class="section-desc">Breakdown by outcome and baseline DPD bucket</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="chart-title">AR Disposition Breakdown</div>
+          <div class="chart-wrap" style="height:280px"><canvas id="dispositionChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="chart-title">Pearly Resolution Rate by Bucket</div>
+          <div class="chart-wrap" style="height:280px"><canvas id="bucketChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Office-Level Performance</div>
+      <div class="section-desc" id="officeDesc"></div>
+      <div class="card">
+        <div class="chart-title">AR Reduction by Office</div>
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--blue-accent)"></div>Pearly Resolved</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#94A3B8"></div>Exhausted (Follow Up)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--blue-light)"></div>Written Off</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#E2E8F0"></div>Outstanding</div>
+        </div>
+        <div class="chart-wrap" id="officeChartWrap"><canvas id="officeChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="footer" id="footerText"></div>
+  </div>
+
+</div>
+
+<script>
+// ── Globals ──
+let fileData = { 1: null, 2: null };
+let charts = {};
+
+const fmt = v => {
+  const abs = Math.abs(v);
+  if (abs >= 1000000) return '$' + (v/1000000).toFixed(1) + 'M';
+  if (abs >= 1000) return '$' + (v/1000).toFixed(1) + 'K';
+  return '$' + v.toFixed(0);
+};
+const fmtFull = v => '$' + Math.round(v).toLocaleString('en-US');
+
+function handleFile(input, slot) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    fileData[slot] = { name: file.name, data: new Uint8Array(e.target.result) };
+    document.getElementById(`file${slot}name`).textContent = '✓ ' + file.name;
+    document.getElementById(`card${slot}`).classList.add('loaded');
+    document.getElementById('runBtn').disabled = !(fileData[1] && fileData[2]);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function resetAll() {
+  fileData = { 1: null, 2: null };
+  document.getElementById('uploadSection').classList.remove('generated');
+  document.getElementById('report').style.display = 'none';
+  ['file1','file2'].forEach(id => { document.getElementById(id).value = ''; });
+  ['file1name','file2name'].forEach(id => { document.getElementById(id).textContent = ''; });
+  ['card1','card2'].forEach(id => { document.getElementById(id).classList.remove('loaded'); });
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('status').textContent = '';
+  document.getElementById('status').className = 'status pre-gen';
+  document.getElementById('periodLabel').textContent = 'Upload two reports to begin';
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+}
+
+function parseSheet(wb, sheetName, skipRows) {
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return null;
+  const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  const headers = json[skipRows];
+  const rows = [];
+  for (let i = skipRows + 1; i < json.length; i++) {
+    const row = {};
+    headers.forEach((h, j) => { if (h) row[h] = json[i][j]; });
+    if (row['App ID'] || row['PMS ID']) rows.push(row);
+  }
+  return rows;
+}
+
+function getAsOfDate(wb, sheetName) {
+  const ws = wb.Sheets[sheetName];
+  const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  for (let i = 0; i < Math.min(5, json.length); i++) {
+    if (json[i][0] === 'As of Date:') return json[i][1];
+  }
+  return '?';
+}
+
+function excelDateToJS(v) {
+  if (v instanceof Date) return v;
+  if (typeof v === 'number') return new Date((v - 25569) * 86400000);
+  if (typeof v === 'string') { const d = new Date(v); return isNaN(d) ? null : d; }
+  return null;
+}
+
+async function runAnalysis() {
+  const statusEl = document.getElementById('status');
+  statusEl.className = 'status pre-gen';
+  statusEl.textContent = 'Parsing files…';
+  await new Promise(r => setTimeout(r, 30));
+
+  try {
+    const wb1 = XLSX.read(fileData[1].data, { type: 'array', cellDates: true });
+    const wb2 = XLSX.read(fileData[2].data, { type: 'array', cellDates: true });
+
+    const required = ['Prompted + Processed', 'AR Status Report'];
+    for (const s of required) {
+      if (!wb1.Sheets[s]) throw new Error(`Older report missing sheet: "${s}"`);
+      if (!wb2.Sheets[s]) throw new Error(`Newer report missing sheet: "${s}"`);
+    }
+
+    const date1 = getAsOfDate(wb1, 'AR Status Report');
+    const date2 = getAsOfDate(wb2, 'AR Status Report');
+
+    const d1 = new Date(date1), d2 = new Date(date2);
+    let olderWB, newerWB, olderDate, newerDate;
+    if (d1 <= d2) {
+      olderWB = wb1; newerWB = wb2; olderDate = date1; newerDate = date2;
+    } else {
+      olderWB = wb2; newerWB = wb1; olderDate = date2; newerDate = date1;
+    }
+
+    statusEl.textContent = 'Reading sheets…';
+    await new Promise(r => setTimeout(r, 30));
+
+    const arOld = parseSheet(olderWB, 'AR Status Report', 4);
+    const ppNew = parseSheet(newerWB, 'Prompted + Processed', 4);
+    const arNew = parseSheet(newerWB, 'AR Status Report', 4);
+    const ppOld = parseSheet(olderWB, 'Prompted + Processed', 4);
+
+    statusEl.textContent = `Matching ${arOld.length.toLocaleString()} AR records against ${ppNew.length.toLocaleString()} payments…`;
+    await new Promise(r => setTimeout(r, 30));
+
+      // Build ID sets
+      const arOldByID = {};
+      arOld.forEach(r => { const id = String(r['App ID']); arOldByID[id] = r; });
+      const arOldIDs = new Set(Object.keys(arOldByID));
+
+      const arNewIDs = new Set();
+      const arNewByID = {};
+      arNew.forEach(r => { const id = String(r['App ID']); arNewIDs.add(id); arNewByID[id] = r; });
+
+      // ── Balance-Delta + Funnel Methodology ──
+      // Not Ready (Outstanding + Blocked) excluded from engageable.
+      // P+P split by Type (Processed vs Prompted).
+      // Unresolved patients broken out by current funnel stage.
+
+      // Build PP index with type tracking
+      const ppNewByID = {};
+      ppNew.forEach(r => {
+        const id = String(r['App ID']);
+        if (!ppNewByID[id]) ppNewByID[id] = { rows: [], hasProcessed: false, hasPrompted: false };
+        ppNewByID[id].rows.push(r);
+        const t = r['Type'] || 'Processed';
+        if (t === 'Processed') ppNewByID[id].hasProcessed = true;
+        else ppNewByID[id].hasPrompted = true;
+      });
+      const ppNewIDs = new Set(Object.keys(ppNewByID));
+
+      const olderDateObj = new Date(olderDate);
+
+      const totalAR = arOld.reduce((s, r) => s + (Number(r['Patient Balance']) || 0), 0);
+      const notReadyAR = arOld.filter(r => r['AR Status'] === 'Blocked' || r['AR Status'] === 'Outstanding')
+        .reduce((s, r) => s + (Number(r['Patient Balance']) || 0), 0);
+      const notReadyN = arOld.filter(r => r['AR Status'] === 'Blocked' || r['AR Status'] === 'Outstanding').length;
+      const engageableAR = totalAR - notReadyAR;
+      const engageableN = arOld.filter(r => r['AR Status'] !== 'Blocked' && r['AR Status'] !== 'Outstanding').length;
+
+      // Counters
+      let processedResolved = 0, promptedResolved = 0, bothResolved = 0;
+      let processedN = 0, promptedN = 0, bothN = 0;
+      let partialPaid = 0, partialPaidN = 0;
+      let inFunnelScheduled = 0, inFunnelScheduledN = 0;
+      let inFunnelEngaged = 0, inFunnelEngagedN = 0;
+      let exhaustedFollowUp = 0, exhaustedFollowUpN = 0;
+      let writtenOff = 0, writtenOffN = 0;
+      let ppProcessedAmt = 0, ppPromptedAmt = 0; // transaction amounts
+
+      const bucketMap = {};
+      const officeMap = {};
+
+      arOldIDs.forEach(id => {
+        const baseline = arOldByID[id];
+        const baselineBal = Number(baseline['Patient Balance']) || 0;
+        const baselineStatus = baseline['AR Status'] || 'Unknown';
+        if (baselineStatus === 'Blocked' || baselineStatus === 'Outstanding') return;
+
+        const bucket = baseline['Aging Bucket'] || 'Unknown';
+        const office = baseline['Office'] || 'Unknown';
+
+        if (!bucketMap[bucket]) bucketMap[bucket] = { baseline: 0, pearlyResolved: 0, pts: 0 };
+        bucketMap[bucket].baseline += baselineBal;
+        bucketMap[bucket].pts++;
+
+        if (!officeMap[office]) officeMap[office] = {
+          patients: 0, baselineAR: 0, pearlyResolved: 0, exhausted: 0, writtenOff: 0, unresolved: 0, ids: new Set()
+        };
+        officeMap[office].patients++;
+        officeMap[office].baselineAR += baselineBal;
+        officeMap[office].ids.add(id);
+
+        const onNewerAR = arNewIDs.has(id);
+        const inPP = ppNewIDs.has(id);
+        const currentBal = onNewerAR ? (Number(arNewByID[id]?.['Patient Balance']) || 0) : 0;
+        const resolved = onNewerAR ? Math.max(baselineBal - currentBal, 0) : baselineBal;
+        const unresolvedAmt = baselineBal - resolved;
+
+        if (inPP) {
+          // Track transaction amounts
+          ppNewByID[id].rows.forEach(r => {
+            const t = r['Type'] || 'Processed';
+            if (t === 'Processed') ppProcessedAmt += Number(r['Amount']) || 0;
+            else ppPromptedAmt += Number(r['Amount']) || 0;
+          });
+
+          const hp = ppNewByID[id].hasProcessed, hpr = ppNewByID[id].hasPrompted;
+
+          if (resolved > 0) {
+            // Classify by type
+            if (hp && hpr) { bothResolved += resolved; bothN++; }
+            else if (hp) { processedResolved += resolved; processedN++; }
+            else { promptedResolved += resolved; promptedN++; }
+            bucketMap[bucket].pearlyResolved += resolved;
+            officeMap[office].pearlyResolved += resolved;
+
+            if (unresolvedAmt > 0) {
+              partialPaid += unresolvedAmt; partialPaidN++;
+              officeMap[office].unresolved += unresolvedAmt;
+            }
+          } else {
+            // In PP but balance didn't decrease — still partial paid
+            partialPaid += baselineBal; partialPaidN++;
+            officeMap[office].unresolved += baselineBal;
+          }
+        } else if (onNewerAR) {
+          // On AR, no PP — check current funnel stage
+          const newStatus = arNewByID[id]?.['AR Status'] || 'Unknown';
+          if (newStatus === 'Scheduled') {
+            inFunnelScheduled += baselineBal; inFunnelScheduledN++;
+            officeMap[office].unresolved += baselineBal;
+          } else if (newStatus === 'Engaged') {
+            inFunnelEngaged += baselineBal; inFunnelEngagedN++;
+            officeMap[office].unresolved += baselineBal;
+          } else if (newStatus === 'Follow Up') {
+            exhaustedFollowUp += baselineBal; exhaustedFollowUpN++;
+            officeMap[office].exhausted += baselineBal;
+          } else {
+            // Status changed to Outstanding/Blocked
+            writtenOff += baselineBal; writtenOffN++;
+            officeMap[office].writtenOff += baselineBal;
+          }
+        } else {
+          // Gone from everything
+          writtenOff += baselineBal; writtenOffN++;
+          officeMap[office].writtenOff += baselineBal;
+        }
+      });
+
+      const pearlyResolved = processedResolved + promptedResolved + bothResolved;
+      const pearlyPtsN = processedN + promptedN + bothN;
+
+      // Group name
+      const allOffices = [...new Set(arOld.map(r => r['Office']))].filter(Boolean).sort();
+      const groupPrefix = findCommonPrefix(allOffices);
+
+      // Per-office rollup
+      const officesData = Object.entries(officeMap).map(([name, d]) => ({
+        name: name.replace(groupPrefix, '').trim() || name,
+        fullName: name, patients: d.patients,
+        baselineAR: d.baselineAR, pearlyResolved: d.pearlyResolved,
+        exhausted: d.exhausted, writtenOff: d.writtenOff, unresolved: d.unresolved,
+        pearlyPct: d.baselineAR > 0 ? (d.pearlyResolved / d.baselineAR * 100) : 0,
+      })).sort((a, b) => b.baselineAR - a.baselineAR);
+
+      // Bucket data
+      const bucketOrder = ['<30', '30-60', '60-90', '90+'];
+      const bucketData = bucketOrder.filter(b => bucketMap[b]).map(b => ({
+        bucket: b, ...bucketMap[b],
+        pearlyRate: bucketMap[b].baseline > 0 ? (bucketMap[b].pearlyResolved / bucketMap[b].baseline * 100) : 0,
+      }));
+
+      // ── Render ──
+      statusEl.textContent = 'Building charts…';
+      await new Promise(r => setTimeout(r, 30));
+
+      renderReport({
+        olderDate, newerDate, groupPrefix: groupPrefix.trim(),
+        totalAR, engageableAR, notReadyAR, notReadyN, engageableN,
+        pearlyResolved, processedResolved, promptedResolved, bothResolved,
+        pearlyPtsN, processedN, promptedN, bothN,
+        ppProcessedAmt, ppPromptedAmt,
+        partialPaid, partialPaidN,
+        inFunnelScheduled, inFunnelScheduledN,
+        inFunnelEngaged, inFunnelEngagedN,
+        exhaustedFollowUp, exhaustedFollowUpN,
+        writtenOff, writtenOffN,
+        totalPatients: arOld.length,
+        officesData, bucketData,
+      });
+
+      statusEl.textContent = '';
+      document.getElementById('uploadSection').classList.add('generated');
+      document.getElementById('report').style.display = 'block';
+
+    } catch (err) {
+      statusEl.className = 'status pre-gen error';
+      statusEl.textContent = 'Error: ' + err.message;
+      console.error(err);
+    }
+}
+
+function findCommonPrefix(strings) {
+  if (!strings.length) return '';
+  let prefix = strings[0];
+  for (let i = 1; i < strings.length; i++) {
+    while (strings[i].indexOf(prefix) !== 0 && prefix.length > 0) {
+      prefix = prefix.slice(0, -1);
+    }
+  }
+  // Trim to last word boundary
+  const lastSpace = prefix.lastIndexOf(' ');
+  return lastSpace > 0 ? prefix.slice(0, lastSpace + 1) : prefix;
+}
+
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function renderReport(D) {
+  Chart.defaults.font.family = "'DM Sans', sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = '#64748B';
+
+  const groupName = D.groupPrefix || 'Customer';
+  document.getElementById('reportTitle').textContent = `${groupName}— AR Reduction Report`;
+  document.getElementById('periodLabel').textContent = `${D.olderDate} → ${D.newerDate}`;
+
+  const pearlyPct = D.engageableAR > 0 ? (D.pearlyResolved / D.engageableAR * 100) : 0;
+  const writeOffPct = D.engageableAR > 0 ? (D.writtenOff / D.engageableAR * 100) : 0;
+  const exhaustedPct = D.engageableAR > 0 ? (D.exhaustedFollowUp / D.engageableAR * 100) : 0;
+  const procPct = (D.ppProcessedAmt + D.ppPromptedAmt) > 0 ? Math.round(D.ppProcessedAmt / (D.ppProcessedAmt + D.ppPromptedAmt) * 100) : 0;
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi">
+      <div class="kpi-label">Engageable Baseline (${D.olderDate})</div>
+      <div class="kpi-value">${fmt(D.engageableAR)}</div>
+      <div class="kpi-sub">${D.engageableN?.toLocaleString() || D.totalPatients.toLocaleString()} patients (Scheduled + Engaged + Follow Up). ${fmt(D.notReadyAR)} not ready excluded.</div>
+    </div>
+    <div class="kpi highlight">
+      <div class="kpi-label">Pearly Resolution Rate</div>
+      <div class="kpi-value">${pearlyPct.toFixed(1)}%</div>
+      <div class="kpi-sub">${fmt(D.pearlyResolved)} baseline balance resolved across ${D.pearlyPtsN.toLocaleString()} patients</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Processed / Prompted</div>
+      <div class="kpi-value">${procPct} / ${100 - procPct}</div>
+      <div class="kpi-sub">${fmt(D.ppProcessedAmt)} paid in-app · ${fmt(D.ppPromptedAmt)} prompted (phone, front desk)</div>
+    </div>
+    <div class="kpi" style="border-left: 4px solid #F59E0B;">
+      <div class="kpi-label">Exhausted → Collections Ready</div>
+      <div class="kpi-value">${fmt(D.exhaustedFollowUp)}</div>
+      <div class="kpi-sub">${D.exhaustedFollowUpN.toLocaleString()} patients completed full campaign. No payment.</div>
+    </div>`;
+
+  const partialPaidPct = D.engageableAR > 0 ? (D.partialPaid / D.engageableAR * 100) : 0;
+  document.getElementById('callout1').innerHTML = `
+    Of the <strong>${fmt(D.engageableAR)}</strong> engageable baseline,
+    <strong>${fmt(D.pearlyResolved)} (${pearlyPct.toFixed(1)}%)</strong> was resolved through Pearly (balance delta).
+    <strong>${fmt(D.partialPaid)} (${partialPaidPct.toFixed(1)}%)</strong> partially paid — Pearly reached these patients but their baseline balance wasn't fully resolved.
+    <strong>${fmt(D.exhaustedFollowUp)} (${exhaustedPct.toFixed(1)}%)</strong> exhausted the full campaign without paying.
+    <strong>${fmt(D.writtenOff)} (${writeOffPct.toFixed(1)}%)</strong> was written off.`;
+
+  // ── Waterfall ──
+  const eng = D.engageableAR;
+  document.getElementById('waterfallTitle').textContent = `Engageable: ${fmt(eng)} → funnel disposition`;
+  destroyChart('waterfall');
+  const wSteps = [
+    ['Engageable', eng, 0, '#1E2D4A'],
+    ['Pearly\nResolved', D.pearlyResolved, eng - D.pearlyResolved, '#335EEA'],
+    ['Partial\nPaid', D.partialPaid, eng - D.pearlyResolved - D.partialPaid, '#F59E0B'],
+    ['In\nFunnel', D.inFunnelScheduled + D.inFunnelEngaged, eng - D.pearlyResolved - D.partialPaid - D.inFunnelScheduled - D.inFunnelEngaged, '#FB923C'],
+    ['Exhausted\n(Follow Up)', D.exhaustedFollowUp, eng - D.pearlyResolved - D.partialPaid - D.inFunnelScheduled - D.inFunnelEngaged - D.exhaustedFollowUp, '#94A3B8'],
+    ['Written\nOff', D.writtenOff, 0, '#E2E8F0'],
+  ];
+  charts['waterfall'] = new Chart(document.getElementById('waterfallChart'), {
+    type: 'bar',
+    data: {
+      labels: wSteps.map(s => s[0]),
+      datasets: [
+        { label: 'Base', data: wSteps.map(s => s[2]), backgroundColor: 'transparent', borderWidth: 0 },
+        { label: 'Value', data: wSteps.map(s => s[1]), backgroundColor: wSteps.map(s => s[3]), borderRadius: 4, borderSkipped: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { font: { weight: '600', size: 10 }, maxRotation: 0 } },
+        y: { stacked: true, grid: { color: '#F1F5F9' }, ticks: { callback: v => fmt(v) }, max: eng * 1.08 }
+      },
+      plugins: { legend: { display: false }, tooltip: { filter: ctx => ctx.datasetIndex === 1, callbacks: { label: ctx => ` ${fmtFull(ctx.raw)} (${(ctx.raw/eng*100).toFixed(1)}%)` } } }
+    }
+  });
+
+  // ── Disposition Donut ──
+  destroyChart('disposition');
+  const donutLabels = ['Processed', 'Prompted', 'Both', 'Partial Paid',
+    'In Funnel', 'Exhausted (Follow Up)', 'Written Off'];
+  const donutValues = [D.processedResolved, D.promptedResolved, D.bothResolved, D.partialPaid,
+    D.inFunnelScheduled + D.inFunnelEngaged, D.exhaustedFollowUp, D.writtenOff];
+  const donutColors = ['#0041C0', '#335EEA', '#8EA9FF', '#F59E0B', '#FB923C', '#94A3B8', '#E2E8F0'];
+
+  charts['disposition'] = new Chart(document.getElementById('dispositionChart'), {
+    type: 'doughnut',
+    data: {
+      labels: donutLabels,
+      datasets: [{ data: donutValues, backgroundColor: donutColors, borderWidth: 2, borderColor: '#FFFFFF', hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '55%',
+      plugins: {
+        legend: { position: 'bottom', labels: { padding: 10, usePointStyle: true, pointStyle: 'rectRounded', font: { size: 9 } } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmtFull(ctx.raw)} (${(ctx.raw/D.engageableAR*100).toFixed(1)}%)` } }
+      }
+    }
+  });
+
+  // ── Bucket Resolution Rate ──
+  destroyChart('bucket');
+  charts['bucket'] = new Chart(document.getElementById('bucketChart'), {
+    type: 'bar',
+    data: {
+      labels: D.bucketData.map(b => b.bucket + ' DPD'),
+      datasets: [{
+        label: 'Pearly Resolution %',
+        data: D.bucketData.map(b => b.pearlyRate),
+        backgroundColor: ctx => {
+          const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 260);
+          g.addColorStop(0, '#335EEA'); g.addColorStop(1, '#8EA9FF'); return g;
+        },
+        borderRadius: 6, borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { grid: { display: false } }, y: { grid: { color: '#F1F5F9' }, ticks: { callback: v => v + '%' }, beginAtZero: true } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toFixed(1)}% of baseline resolved via Pearly` } } }
+    }
+  });
+
+  // ── Office Chart ──
+  const CHART_MAX = 20;
+  let chartOffices = D.officesData.length > CHART_MAX ? D.officesData.slice(0, CHART_MAX) : D.officesData;
+
+  const pcts = D.officesData.map(o => o.pearlyPct);
+  document.getElementById('officeDesc').textContent = `Pearly resolution rates vary by location — from ${Math.min(...pcts).toFixed(1)}% to ${Math.max(...pcts).toFixed(1)}%` +
+    (D.officesData.length > CHART_MAX ? ` (showing top ${CHART_MAX} of ${D.officesData.length} offices)` : '');
+  document.getElementById('officeChartWrap').style.height = Math.max(300, chartOffices.length * 32) + 'px';
+
+  destroyChart('office');
+  charts['office'] = new Chart(document.getElementById('officeChart'), {
+    type: 'bar',
+    data: {
+      labels: chartOffices.map(o => o.name),
+      datasets: [
+        { label: 'Pearly Resolved', data: chartOffices.map(o => o.pearlyResolved), backgroundColor: '#335EEA', borderRadius: 2 },
+        { label: 'Exhausted (Follow Up)', data: chartOffices.map(o => o.exhausted), backgroundColor: '#94A3B8', borderRadius: 2 },
+        { label: 'Written Off', data: chartOffices.map(o => o.writtenOff), backgroundColor: '#C2D7FF', borderRadius: 2 },
+        { label: 'Outstanding', data: chartOffices.map(o => o.unresolved), backgroundColor: '#E2E8F0', borderRadius: 2 }
+      ]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, grid: { color: '#F1F5F9' }, ticks: { callback: v => fmt(v) } },
+        y: { stacked: true, grid: { display: false }, ticks: { font: { weight: '500', size: 11 } } }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          afterBody: ctx => { const o = chartOffices[ctx[0].dataIndex]; return `\nPearly: ${o.pearlyPct.toFixed(1)}%`; },
+          label: ctx => ` ${ctx.dataset.label}: ${fmtFull(ctx.raw)}`
+        }}
+      }
+    }
+  });
+
+  document.getElementById('footerText').textContent = `Generated from Pearly Payments Reports · Baseline: ${D.olderDate} · Current: ${D.newerDate} · Balance-delta methodology · Engageable = Scheduled + Engaged + Follow Up at baseline`;
+}
+</script>
+</body>
+</html>
