@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pearly Payments Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#FFFFFF; --panel:#EFF4FF; --surface:#FFFFFF; --ink:#1E2D4A; --head:#0041C0; --muted:#55648A; --faint:#7D8AA8; --line:#D3DEF6;
+  --accent:#0041C0; --accent-soft:#DCE6FF; --engaged:#C2D7FF; --processed:#335EEA; --prompted:#42BA96; --barc:#0041C0;
+  --b1:#C2D7FF; --b2:#8EA9FF; --b3:#335EEA; --b4:#0041C0; --b5:#C9D2E4;
+  --bad:#C8324F;
+  --font:"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1222; --panel:#14203A; --surface:#0F1830; --ink:#E6ECFA; --head:#8EA9FF; --muted:#A3B1D1; --faint:#7C8AAD; --line:#26355A;
+  --accent:#8EA9FF; --accent-soft:#1E2F57; --engaged:#2E4478; --processed:#5F80F0; --prompted:#4FC9A4; --barc:#8EA9FF;
+  --b1:#2E4478; --b2:#4D69C9; --b3:#7F9BF7; --b4:#C2D7FF; --b5:#3A4562; --bad:#F0788B;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1222; --panel:#14203A; --surface:#0F1830; --ink:#E6ECFA; --head:#8EA9FF; --muted:#A3B1D1; --faint:#7C8AAD; --line:#26355A;
+  --accent:#8EA9FF; --accent-soft:#1E2F57; --engaged:#2E4478; --processed:#5F80F0; --prompted:#4FC9A4; --barc:#8EA9FF;
+  --b1:#2E4478; --b2:#4D69C9; --b3:#7F9BF7; --b4:#C2D7FF; --b5:#3A4562; --bad:#F0788B;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.wrap{max-width:1120px;margin:0 auto;padding:22px 24px 64px}
+.brand{display:flex;align-items:baseline;gap:12px;margin-bottom:22px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.brand .mark{font-weight:800;font-size:26px;letter-spacing:-.04em;color:var(--head)}
+.brand .prod{font-size:14px;color:var(--ink);font-weight:600;padding-left:12px;border-left:1px solid var(--line)}
+
+/* Drop zone */
+.drop{border-color:var(--b2)!important;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  min-height:min(70vh,560px);border:2px dashed var(--line);border-radius:20px;padding:40px 24px;background:var(--panel);
+  cursor:pointer;transition:border-color .15s, background .15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop h1{color:var(--head);font-size:clamp(26px,4vw,36px);line-height:1.15;margin:18px 0 8px;font-weight:700;letter-spacing:-.02em}
+.drop p{margin:0;color:var(--muted);max-width:52ch}
+.drop .icon{width:64px;height:64px;border-radius:16px;background:var(--accent-soft);display:grid;place-items:center;color:var(--accent)}
+.drop .pick{margin-top:22px;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:11px 20px;font-weight:600;cursor:pointer}
+.drop .fine{margin-top:18px;font-size:13px;color:var(--faint)}
+.status{margin-top:16px;font-size:14px;min-height:21px}
+.status.err{color:var(--bad);font-weight:500}
+
+/* Header */
+.top{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-end;justify-content:space-between;margin-bottom:24px}
+.top h1{color:var(--head);margin:0;font-size:clamp(26px,3.6vw,34px);line-height:1.15;font-weight:700;letter-spacing:-.02em}
+.facts{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:8px;color:var(--muted);font-size:14px}
+.facts b{color:var(--ink);font-weight:500}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.select{appearance:none;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23506690' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 12px center;
+  border:1px solid var(--line);border-radius:10px;padding:9px 36px 9px 12px;max-width:100%;min-width:220px;cursor:pointer}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.08);color:#fff}
+
+/* Panels */
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:20px}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:0;border-radius:12px;padding:24px}
+.panel h2{margin:0 0 4px;font-size:18px;font-weight:700;color:var(--head)}
+.panel .sub{margin:0 0 20px;color:var(--muted);font-size:13.5px}
+.panel.wide{grid-column:1/-1}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0}
+.stat{padding:2px 20px}
+.stat:first-child{padding-left:0}
+.stat+.stat{border-left:1px solid var(--line)}
+.stat dt{font-size:13.5px;color:var(--muted)}
+.stat dd{margin:4px 0 0;font-size:28px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.stat .note{font-size:13px;color:var(--muted);margin-top:4px}
+.stat .mini{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--processed);margin-top:10px;max-width:180px}
+.stat .mini i{display:block;height:100%;background:var(--prompted)}
+@media (max-width:860px){.stats{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:20px}.stat:nth-child(3){border-left:0;padding-left:0}}
+@media (max-width:420px){.stats{grid-template-columns:minmax(0,1fr)}.stat{border-left:0!important;padding-left:0}}
+.btable th{font-size:13px;font-weight:500;color:var(--muted);text-align:right;padding:0 0 8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.btable th:first-child{text-align:left;padding-left:0}
+.btable td.eng{text-align:right;width:130px;color:var(--muted);padding-left:12px}
+.btable td.rec{text-align:right;width:150px;padding-left:16px;white-space:nowrap;font-weight:500}
+.btable{min-width:620px}
+.two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:32px}
+@media (max-width:760px){.two{grid-template-columns:minmax(0,1fr)}}
+.two h3{font-size:14.5px;font-weight:600;margin:0 0 12px;color:var(--ink)}
+.flow td{padding:6px 0;vertical-align:middle}
+.flow td.lbl{width:96px;white-space:nowrap;font-size:14px}
+.flow td.cnt{text-align:right;width:70px;font-weight:500;padding-left:10px}
+.flow td.pct{text-align:right;width:46px;color:var(--muted);font-size:13px;padding-left:6px}
+.flow .bar i{background:var(--barc)}
+.chan{width:100%;border-collapse:collapse}
+.chan th{font-size:13px;font-weight:500;color:var(--muted);text-align:right;padding:0 0 8px 10px;border-bottom:1px solid var(--line)}
+.chan th:first-child{text-align:left;padding-left:0}
+.chan td{padding:10px 0 10px 10px;border-bottom:1px solid var(--line);text-align:right}
+.chan td:first-child{text-align:left;padding-left:0;font-weight:500}
+.ohead{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-start}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;padding:3px;background:var(--panel)}
+.seg button{border:0;background:none;padding:6px 14px;border-radius:7px;cursor:pointer;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+
+/* Collection rate */
+.rate{font-size:clamp(56px,9vw,80px);line-height:1;font-weight:700;letter-spacing:-.03em;color:var(--accent)}
+.split{display:flex;height:18px;border-radius:9px;overflow:hidden;margin:22px 0 10px;background:var(--engaged)}
+.split span{display:block;height:100%;background:var(--accent);transition:width .5s cubic-bezier(.2,.7,.2,1)}
+@media (prefers-reduced-motion:reduce){.split span,.bar i{transition:none}}
+.legend{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.trio dt{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.trio dd{margin:2px 0 0;font-size:24px;font-weight:700}
+.trio.money{gap:16px}.trio.money dd{font-size:clamp(16px,1.9vw,21px)}
+.dot{width:9px;height:9px;border-radius:3px;display:inline-block;flex:none}
+.formula{margin-top:14px;font-size:13px;color:var(--muted)}
+
+/* Buckets */
+.btable{width:100%;border-collapse:collapse}
+.btable td{padding:9px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+.btable td.lbl{width:76px;font-weight:500;white-space:nowrap}
+.btable td.amt{text-align:right;width:120px;font-weight:500;padding-left:12px}
+.btable td.pct{text-align:right;width:52px;color:var(--muted);font-size:13px;padding-left:8px}
+.btable tr.total td{border-bottom:0;border-top:2px solid var(--ink);font-weight:600;padding-top:12px}
+.bar{height:12px;background:transparent;border-radius:6px;padding-left:12px}
+.bar i{display:block;height:12px;border-radius:6px;min-width:2px;transition:width .5s cubic-bezier(.2,.7,.2,1)}
+.mix{margin-top:14px;font-size:13px;color:var(--muted)}
+.pp{display:flex;height:10px;border-radius:5px;overflow:hidden;margin-top:20px;background:var(--engaged)}
+.pp span{display:block;height:100%}
+#ppProc{background:var(--processed)} #ppProm{background:var(--prompted)}
+.pplegend{display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:8px;font-size:13px;color:var(--muted)}
+.pplegend>span{display:inline-flex;align-items:center;gap:6px}
+
+/* Offices */
+.offices{margin-top:20px}
+.tscroll{overflow-x:auto;margin:0 -24px;padding:0 24px}
+.otable{width:100%;border-collapse:collapse;min-width:640px}
+.otable th{font-size:13px;font-weight:500;color:var(--muted);text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.otable th:first-child,.otable td:first-child{text-align:left;padding-left:0}
+.otable th button{background:none;border:0;padding:0;color:inherit;cursor:pointer;font-weight:500}
+.otable th button[aria-sort]{color:var(--ink)}
+.otable td{padding:10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.otable tbody tr{cursor:pointer}
+.otable tbody tr:hover{background:var(--accent-soft)}
+.otable tbody tr.sel{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.otable tfoot td{font-weight:600;border-bottom:0;border-top:2px solid var(--ink)}
+.minibar{display:inline-block;vertical-align:middle;width:56px;height:6px;border-radius:3px;background:var(--engaged);margin-left:10px;overflow:hidden}
+.minibar i{display:block;height:100%;background:var(--barc)}
+.hint{font-size:13px;color:var(--muted);margin-top:12px}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--panel);
+  padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.hidden{display:none!important}
+@media (max-width:520px){.wrap{padding:18px 14px 48px}.panel{padding:18px}.tscroll{margin:0 -18px;padding:0 18px}.trio dd{font-size:20px}.select{min-width:0;width:100%}.controls{width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="mark">pearly</span><span class="prod">Payments analytics</span></div>
+  <input type="file" id="file" accept=".xlsx,.xls,.xlsm" class="hidden">
+
+  <section id="empty">
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a payments report file">
+      <div class="icon" aria-hidden="true">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="m9 14 3 3 3-3"/></svg>
+      </div>
+      <h1>Drop a payments report</h1>
+      <p>Single-location and multi-location exports both work. You’ll get the collection rate and collected amount by days past due, plus a per-office breakdown for groups.</p>
+      <button class="pick" type="button" id="pick">Choose file</button>
+      <p class="fine">The file is read in your browser and never uploaded.</p>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="report" class="hidden">
+    <header class="top">
+      <div>
+        <h1 id="name"></h1>
+        <div class="facts" id="facts"></div>
+      </div>
+      <div class="controls">
+        <select class="select hidden" id="office" aria-label="Office"></select>
+        <button class="btn primary" id="copy" type="button">Copy analytics</button>
+        <button class="btn" id="another" type="button">Load another file</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="panel" aria-labelledby="h-rate">
+        <h2 id="h-rate">Collection rate by count</h2>
+        <p class="sub">Collected payments out of everyone engaged</p>
+        <div class="rate num" id="rate">—</div>
+        <div class="split" aria-hidden="true"><span id="splitBar" style="width:0"></span></div>
+        <div class="legend"><span>Collected</span><span>Currently engaged</span></div>
+        <dl class="trio">
+          <div><dt><span class="dot" style="background:var(--accent)"></span>Collected</dt><dd class="num" id="collected">—</dd></div>
+          <div><dt><span class="dot" style="background:var(--engaged)"></span>Curr. engaged</dt><dd class="num" id="engaged">—</dd></div>
+          <div><dt>Total engaged</dt><dd class="num" id="total">—</dd></div>
+        </dl>
+        <p class="formula">Collected is the count of Prompted + Processed payments. Currently engaged is the count of AR Status “Engaged” patients.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-rate-d">
+        <h2 id="h-rate-d">Collection rate by dollars</h2>
+        <p class="sub">Dollars collected out of all engaged dollars</p>
+        <div class="rate num" id="rateD">—</div>
+        <div class="split" aria-hidden="true"><span id="splitBarD" style="width:0"></span></div>
+        <div class="legend"><span>Collected</span><span>Currently engaged</span></div>
+        <dl class="trio money">
+          <div><dt><span class="dot" style="background:var(--accent)"></span>Collected</dt><dd class="num" id="collectedD">—</dd></div>
+          <div><dt><span class="dot" style="background:var(--engaged)"></span>Curr. engaged</dt><dd class="num" id="engagedD">—</dd></div>
+          <div><dt>Total engaged</dt><dd class="num" id="totalD">—</dd></div>
+        </dl>
+        <p class="formula" id="formulaD">Collected is the sum of Prompted + Processed amounts. Currently engaged is the sum of Patient Balance for AR Status “Engaged” patients.</p>
+      </section>
+
+      <section class="panel wide" aria-label="Key numbers">
+        <dl class="stats">
+          <div class="stat"><dt>Average payment</dt><dd class="num" id="avgPay">—</dd><div class="note" id="avgNote"></div></div>
+          <div class="stat"><dt>Self-serve share</dt><dd class="num" id="selfServe">—</dd><div class="mini" aria-hidden="true"><i id="selfBar" style="width:0"></i></div><div class="note" id="selfNote"></div></div>
+          <div class="stat"><dt>Median days to pay</dt><dd class="num" id="medDays">—</dd><div class="note">Days in flow before payment</div></div>
+          <div class="stat"><dt>Median touches per payment</dt><dd class="num" id="medTouch">—</dd><div class="note">Texts, emails and letters combined</div></div>
+        </dl>
+      </section>
+
+      <section class="panel wide" aria-labelledby="h-dpd">
+        <h2 id="h-dpd">Collected by days past due</h2>
+        <p class="sub">Collected dollars by DPD bucket, and each bucket’s dollar collection rate against engaged balances in the same aging bucket</p>
+        <div class="tscroll"><table class="btable num" id="buckets"></table></div>
+        <div class="pp" aria-hidden="true"><span id="ppProc"></span><span id="ppProm"></span></div>
+        <div class="pplegend"><span><i class="dot" style="background:var(--processed)"></i><span id="mixProc"></span></span><span><i class="dot" style="background:var(--prompted)"></i><span id="mixProm"></span></span></div>
+        <p class="mix hidden" id="mix"></p>
+      </section>
+
+      <section class="panel wide" aria-labelledby="h-out">
+        <h2 id="h-out">Outreach effort</h2>
+        <p class="sub">How long collected payments spent in flow, and which channels reached them</p>
+        <div class="two">
+          <div>
+            <h3>Days in flow before payment</h3>
+            <table class="btable flow num" id="flow" style="min-width:0"></table>
+            <p class="mix" id="flowNote"></p>
+          </div>
+          <div>
+            <h3>Touches by channel</h3>
+            <table class="chan num" id="chan"></table>
+            <p class="mix">Average is touches per collected payment. Reached is the share of payments that got at least one touch on that channel.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel offices hidden" id="officePanel" aria-labelledby="h-off">
+      <div class="ohead">
+        <div>
+          <h2 id="h-off">By office</h2>
+          <p class="sub">Select a row to focus the dashboard on that office</p>
+        </div>
+        <div class="seg" role="group" aria-label="Measure">
+          <button type="button" id="modeCount" aria-pressed="true">Count</button>
+          <button type="button" id="modeDollar" aria-pressed="false">Dollars</button>
+          <button type="button" id="modeOut" aria-pressed="false">Outreach</button>
+        </div>
+      </div>
+      <div class="tscroll"><table class="otable num" id="otable"></table></div>
+      <p class="hint" id="officeHint"></p>
+    </section>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// Core logic: parse a payments report workbook and compute the Analytics-tab metrics.
+var BUCKETS = ['<30', '30-60', '60-90', '90+'];
+var BLANK = 'Unknown';
+
+function clean(v) { return v == null ? '' : String(v).trim(); }
+function num(v) {
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  var n = Number(String(v == null ? '' : v).replace(/[$,\s]/g, ''));
+  return isFinite(n) ? n : 0;
+}
+
+function readSheet(XLSX, wb, name, mustHave) {
+  var rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '', raw: true, blankrows: false });
+  var meta = {};
+  var h = -1;
+  for (var i = 0; i < Math.min(rows.length, 15); i++) {
+    var r = rows[i].map(clean);
+    if (r.indexOf(mustHave) !== -1) { h = i; break; }
+    if (/:$/.test(r[0])) meta[r[0].replace(/:$/, '')] = r[1];
+  }
+  if (h === -1) throw new Error('Couldn’t find the “' + mustHave + '” column on the “' + name + '” tab.');
+  var head = rows[h].map(clean);
+  var out = [];
+  for (var j = h + 1; j < rows.length; j++) {
+    var row = rows[j], o = {}, any = false;
+    for (var k = 0; k < head.length; k++) {
+      if (!head[k]) continue;
+      o[head[k]] = row[k];
+      if (clean(row[k]) !== '') any = true;
+    }
+    if (any) out.push(o);
+  }
+  return { meta: meta, head: head, rows: out };
+}
+
+function parseWorkbook(XLSX, wb) {
+  var ppName = wb.SheetNames.find(function (n) { return /prompted/i.test(n); });
+  var arName = wb.SheetNames.find(function (n) { return /ar\s*status/i.test(n); });
+  var missing = [];
+  if (!ppName) missing.push('Prompted + Processed');
+  if (!arName) missing.push('AR Status Report');
+  if (missing.length) throw new Error('This file is missing the ' + missing.join(' and ') + ' tab' + (missing.length > 1 ? 's' : '') + '. Drop a Payments Report export.');
+
+  var pp = readSheet(XLSX, wb, ppName, 'Amount');
+  var ar = readSheet(XLSX, wb, arName, 'AR Status');
+  var multi = pp.head.indexOf('Office') !== -1 || ar.head.indexOf('Office') !== -1;
+
+  var payments = pp.rows.map(function (r) {
+    var b = clean(r['DPD Bucket']);
+    var d = clean(r['Days in Flow']);
+    var tx = clean(r['Text Touchpoints']), em = clean(r['Email Touchpoints']), le = clean(r['Letter Touchpoints']);
+    var hasTouch = tx !== '' || em !== '' || le !== '';
+    return { office: multi ? clean(r.Office) : '', type: clean(r.Type), amount: num(r.Amount), bucket: b || BLANK,
+      days: d === '' ? null : num(d),
+      touches: hasTouch ? { text: num(tx), email: num(em), letter: num(le) } : null };
+  });
+  var accounts = ar.rows.map(function (r) {
+    return { office: multi ? clean(r.Office) : '', status: clean(r['AR Status']), balance: num(r['Patient Balance']), bucket: clean(r['Aging Bucket']) || BLANK };
+  });
+
+  var m = pp.meta;
+  var name = m.Account || m.Group || m.Practice || '';
+  var report = m.Report || '';
+  var period = (report.match(/\(([^)]*\d+[^)]*)\)/) || [])[1] || '';
+  var offices = {};
+  payments.forEach(function (p) { if (p.office) offices[p.office] = 1; });
+  accounts.forEach(function (a) { if (a.office) offices[a.office] = 1; });
+
+  return {
+    name: name,
+    kind: m.Group ? 'Group' : 'Account',
+    period: period,
+    asOf: clean(m['As of Date']),
+    multi: multi,
+    offices: Object.keys(offices).sort(function (a, b) { return a.localeCompare(b); }),
+    payments: payments,
+    accounts: accounts
+  };
+}
+
+function median(arr) {
+  if (!arr.length) return null;
+  var s = arr.slice().sort(function (a, b) { return a - b; });
+  var m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+var FLOW_BINS = [
+  { label: 'Same day', max: 0 }, { label: '1–3 days', max: 3 }, { label: '4–7 days', max: 7 },
+  { label: '8–14 days', max: 14 }, { label: '15–30 days', max: 30 }, { label: '31–60 days', max: 60 },
+  { label: '61+ days', max: Infinity }
+];
+
+function compute(data, office) {
+  var pays = office ? data.payments.filter(function (p) { return p.office === office; }) : data.payments;
+  var accts = office ? data.accounts.filter(function (a) { return a.office === office; }) : data.accounts;
+  var byBucket = {}, engByBucket = {};
+  var processed = 0, prompted = 0, promptedCount = 0, grand = 0;
+  var days = [], touchTotals = [], ch = { text: [0, 0], email: [0, 0], letter: [0, 0] }, withTouch = 0;
+  var bins = FLOW_BINS.map(function (b) { return { label: b.label, max: b.max, count: 0, amount: 0 }; });
+  pays.forEach(function (p) {
+    byBucket[p.bucket] = (byBucket[p.bucket] || 0) + p.amount;
+    grand += p.amount;
+    if (/^processed$/i.test(p.type)) processed += p.amount;
+    else if (/^prompted$/i.test(p.type)) { prompted += p.amount; promptedCount++; }
+    if (p.days != null) {
+      days.push(p.days);
+      for (var i = 0; i < bins.length; i++) if (p.days <= bins[i].max) { bins[i].count++; bins[i].amount += p.amount; break; }
+    }
+    if (p.touches) {
+      withTouch++;
+      var t = p.touches;
+      touchTotals.push(t.text + t.email + t.letter);
+      ['text', 'email', 'letter'].forEach(function (k) { ch[k][0] += t[k]; if (t[k] > 0) ch[k][1]++; });
+    }
+  });
+  var eng = accts.filter(function (a) { return /^engaged$/i.test(a.status); });
+  eng.forEach(function (a) { engByBucket[a.bucket] = (engByBucket[a.bucket] || 0) + a.balance; });
+
+  var labels = BUCKETS.slice();
+  Object.keys(byBucket).concat(Object.keys(engByBucket)).forEach(function (k) { if (labels.indexOf(k) === -1 && k !== BLANK) labels.push(k); });
+  if (byBucket[BLANK] != null || engByBucket[BLANK] != null) labels.push(BLANK);
+  var buckets = labels.map(function (l) {
+    var a = byBucket[l] || 0, e = engByBucket[l] || 0;
+    return { label: l, amount: a, engagedAmt: e, rate: (l === BLANK && !e) ? null : (a + e > 0 ? a / (a + e) : null) };
+  });
+
+  var collected = pays.length;
+  var engaged = eng.length;
+  var engagedAmt = eng.reduce(function (s, a) { return s + a.balance; }, 0);
+  var total = collected + engaged;
+  var totalAmt = grand + engagedAmt;
+  return {
+    collected: collected, engaged: engaged, total: total,
+    rate: total ? collected / total : null,
+    collectedAmt: grand, engagedAmt: engagedAmt, totalAmt: totalAmt,
+    rateAmt: totalAmt > 0 ? grand / totalAmt : null,
+    buckets: buckets, grand: grand, processed: processed, prompted: prompted,
+    avgPayment: collected ? grand / collected : null,
+    selfServe: grand > 0 ? prompted / grand : null,
+    selfServeCount: collected ? promptedCount / collected : null,
+    promptedCount: promptedCount,
+    medianDays: median(days), flowBins: bins, noFlow: collected - days.length,
+    medianTouches: median(touchTotals), withTouch: withTouch,
+    channels: [['Text', 'text'], ['Email', 'email'], ['Letter', 'letter']].map(function (c) {
+      return { label: c[0], avg: withTouch ? ch[c[1]][0] / withTouch : null, reach: withTouch ? ch[c[1]][1] / withTouch : null };
+    })
+  };
+}
+
+function officeRows(data) {
+  return data.offices.map(function (o) {
+    var c = compute(data, o);
+    return { office: o, collected: c.collected, engaged: c.engaged, total: c.total, rate: c.rate, amount: c.grand,
+      collectedAmt: c.collectedAmt, engagedAmt: c.engagedAmt, totalAmt: c.totalAmt, rateAmt: c.rateAmt, buckets: c.buckets,
+      avgPayment: c.avgPayment, selfServe: c.selfServe, medianDays: c.medianDays, medianTouches: c.medianTouches };
+  });
+}
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { parseWorkbook: parseWorkbook, compute: compute, officeRows: officeRows };
+
+</script>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var state = { data:null, office:'', mode:'count', sort:{key:'office', dir:1} };
+  var money = new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
+  var money0 = new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+  var int = new Intl.NumberFormat('en-US');
+  var pct = function(v){ return v == null ? '—' : (v*100).toFixed(1) + '%'; };
+  var bucketColor = {'<30':'var(--b1)','30-60':'var(--b2)','60-90':'var(--b3)','90+':'var(--b4)'};
+  function el(tag, attrs, text){ var e=document.createElement(tag); if(attrs) for(var k in attrs){ if(k==='style') e.style.cssText=attrs[k]; else e.setAttribute(k,attrs[k]); } if(text!=null) e.textContent=text; return e; }
+
+  // ---------- loading ----------
+  var drop = $('drop'), input = $('file');
+  function status(msg, err){ var s=$('status'); s.textContent = msg||''; s.className = 'status' + (err?' err':''); }
+  $('pick').addEventListener('click', function(e){ e.stopPropagation(); input.click(); });
+  drop.addEventListener('click', function(){ input.click(); });
+  drop.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); input.click(); } });
+  input.addEventListener('change', function(){ if(input.files[0]) load(input.files[0]); input.value=''; });
+  ['dragenter','dragover'].forEach(function(t){ document.addEventListener(t, function(e){ e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave','drop'].forEach(function(t){ document.addEventListener(t, function(e){ e.preventDefault(); if(t==='drop'||!e.relatedTarget) drop.classList.remove('over'); }); });
+  document.addEventListener('drop', function(e){ var f = e.dataTransfer && e.dataTransfer.files[0]; if(f) load(f); });
+  $('another').addEventListener('click', function(){ input.click(); });
+
+  function load(file){
+    if(typeof XLSX === 'undefined'){ showEmpty(); status('The spreadsheet reader didn’t load. Check your connection and reload the page.', true); return; }
+    if(!/\.(xlsx|xlsm|xls)$/i.test(file.name)){ showEmpty(); status('“' + file.name + '” isn’t an Excel file. Drop the .xlsx payments report.', true); return; }
+    showEmpty(); status('Reading ' + file.name + '…');
+    var reader = new FileReader();
+    reader.onerror = function(){ status('Couldn’t read that file. Try saving it again from Excel.', true); };
+    reader.onload = function(){
+      setTimeout(function(){
+        try{
+          var wb = XLSX.read(new Uint8Array(reader.result), {type:'array', dense:true});
+          var data = parseWorkbook(XLSX, wb);
+          data.fileName = file.name;
+          state.data = data; state.office = '';
+          status('');
+          render();
+        }catch(err){ status(err && err.message ? err.message : 'Couldn’t read that file.', true); }
+      }, 30);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  function showEmpty(){ $('empty').classList.remove('hidden'); $('report').classList.add('hidden'); }
+
+  // ---------- render ----------
+  function render(){
+    var d = state.data;
+    $('empty').classList.add('hidden'); $('report').classList.remove('hidden');
+    $('name').textContent = d.name || d.fileName;
+    var facts = $('facts'); facts.textContent='';
+    function fact(label, val){ if(!val) return; var s=el('span'); s.appendChild(document.createTextNode(label+' ')); s.appendChild(el('b',null,val)); facts.appendChild(s); }
+    fact('Period', d.period);
+    fact('As of', d.asOf);
+    fact(d.multi ? 'Offices' : 'Location', d.multi ? String(d.offices.length) : 'Single');
+
+    var sel = $('office');
+    if(d.multi){
+      sel.classList.remove('hidden'); sel.textContent='';
+      sel.appendChild(el('option',{value:''},'All offices (' + d.offices.length + ')'));
+      d.offices.forEach(function(o){ sel.appendChild(el('option',{value:o},o)); });
+      sel.value = state.office;
+      $('officePanel').classList.remove('hidden');
+    } else {
+      sel.classList.add('hidden'); $('officePanel').classList.add('hidden');
+    }
+    renderMetrics();
+    if(d.multi) renderOffices();
+  }
+  $('office').addEventListener('change', function(){ state.office = this.value; renderMetrics(); renderOffices(); });
+
+  function renderMetrics(){
+    var c = compute(state.data, state.office);
+    state.current = c;
+    $('rate').textContent = pct(c.rate);
+    $('collected').textContent = int.format(c.collected);
+    $('engaged').textContent = int.format(c.engaged);
+    $('total').textContent = int.format(c.total);
+    $('rateD').textContent = pct(c.rateAmt);
+    $('collectedD').textContent = money0.format(c.collectedAmt);
+    $('engagedD').textContent = money0.format(c.engagedAmt);
+    $('totalD').textContent = money0.format(c.totalAmt);
+    $('collectedD').title = money.format(c.collectedAmt);
+    $('engagedD').title = money.format(c.engagedAmt);
+    $('totalD').title = money.format(c.totalAmt);
+    requestAnimationFrame(function(){
+      $('splitBar').style.width = (c.rate==null?0:c.rate*100) + '%';
+      $('splitBarD').style.width = (c.rateAmt==null?0:c.rateAmt*100) + '%';
+    });
+
+    var t = $('buckets'); t.textContent='';
+    var max = Math.max.apply(null, c.buckets.map(function(b){ return b.amount; }).concat([1]));
+    var thead = el('thead'), hr = el('tr');
+    ['Bucket','','Collected','Share','Engaged balance','Collection rate'].forEach(function(h){ hr.appendChild(el('th',{scope:'col'},h)); });
+    thead.appendChild(hr); t.appendChild(thead);
+    var body = el('tbody');
+    c.buckets.forEach(function(b){
+      var tr = el('tr');
+      tr.appendChild(el('td',{class:'lbl'},b.label));
+      var bt = el('td'); var bar = el('div',{class:'bar'}); var i = el('i',{style:'width:0;background:'+(bucketColor[b.label]||'var(--b5)')});
+      bar.appendChild(i); bt.appendChild(bar); tr.appendChild(bt);
+      tr.appendChild(el('td',{class:'amt'},money.format(b.amount)));
+      tr.appendChild(el('td',{class:'pct'}, c.grand ? Math.round(b.amount/c.grand*100)+'%' : '—'));
+      tr.appendChild(el('td',{class:'eng'},money.format(b.engagedAmt)));
+      var rc = el('td',{class:'rec'},pct(b.rate)); var mb = el('span',{class:'minibar','aria-hidden':'true'}); mb.appendChild(el('i',{style:'width:'+((b.rate||0)*100)+'%'})); rc.appendChild(mb);
+      tr.appendChild(rc);
+      body.appendChild(tr);
+      requestAnimationFrame(function(){ i.style.width = (b.amount/max*100)+'%'; });
+    });
+    var tot = el('tr',{class:'total'});
+    tot.appendChild(el('td',{class:'lbl'},'Total')); tot.appendChild(el('td'));
+    tot.appendChild(el('td',{class:'amt'},money.format(c.grand))); tot.appendChild(el('td',{class:'pct'}, c.grand?'100%':'—'));
+    tot.appendChild(el('td',{class:'eng'},money.format(c.engagedAmt)));
+    tot.appendChild(el('td',{class:'rec'},pct(c.rateAmt)));
+    body.appendChild(tot); t.appendChild(body);
+
+    // key numbers
+    $('avgPay').textContent = c.avgPayment==null ? '—' : money.format(c.avgPayment);
+    $('avgNote').textContent = int.format(c.collected) + ' payments';
+    $('selfServe').textContent = pct(c.selfServe);
+    $('selfNote').textContent = 'Prompted (green) out of all collected dollars. ' + pct(c.selfServeCount) + ' by count.';
+    requestAnimationFrame(function(){ $('selfBar').style.width = ((c.selfServe||0)*100)+'%'; });
+    var fmtN = function(v){ return v==null ? '—' : (Math.round(v*10)/10).toLocaleString('en-US'); };
+    $('medDays').textContent = fmtN(c.medianDays);
+    $('medTouch').textContent = fmtN(c.medianTouches);
+
+    // outreach
+    var ft = $('flow'); ft.textContent=''; var fb = el('tbody');
+    var withDays = c.collected - c.noFlow;
+    var fmax = Math.max.apply(null, c.flowBins.map(function(b){ return b.count; }).concat([1]));
+    c.flowBins.forEach(function(b){
+      var tr = el('tr');
+      tr.appendChild(el('td',{class:'lbl'},b.label));
+      var bt = el('td'), bar = el('div',{class:'bar'}), i = el('i',{style:'width:0'}); bar.appendChild(i); bt.appendChild(bar); tr.appendChild(bt);
+      tr.appendChild(el('td',{class:'cnt'},int.format(b.count)));
+      tr.appendChild(el('td',{class:'pct'}, withDays ? Math.round(b.count/withDays*100)+'%' : '—'));
+      fb.appendChild(tr);
+      requestAnimationFrame(function(){ i.style.width = (b.count/fmax*100)+'%'; });
+    });
+    ft.appendChild(fb);
+    $('flowNote').textContent = c.noFlow ? int.format(c.noFlow) + ' payment' + (c.noFlow===1?' has':'s have') + ' no days-in-flow data and ' + (c.noFlow===1?'is':'are') + ' left out.' : '';
+    var ct = $('chan'); ct.textContent='';
+    var ch = el('thead'), chr = el('tr');
+    ['Channel','Average','Reached'].forEach(function(h){ chr.appendChild(el('th',{scope:'col'},h)); });
+    ch.appendChild(chr); ct.appendChild(ch);
+    var cb = el('tbody');
+    c.channels.forEach(function(x){
+      var tr = el('tr');
+      tr.appendChild(el('td',null,x.label));
+      tr.appendChild(el('td',null, x.avg==null ? '—' : x.avg.toFixed(2)));
+      tr.appendChild(el('td',null, pct(x.reach)));
+      cb.appendChild(tr);
+    });
+    ct.appendChild(cb);
+    $('mix').textContent = 'Processed ' + money.format(c.processed) + ', prompted ' + money.format(c.prompted) + '.';
+    $('mixProc').textContent = 'Processed ' + money.format(c.processed);
+    $('mixProm').textContent = 'Prompted ' + money.format(c.prompted);
+    $('ppProc').style.width = (c.grand ? c.processed/c.grand*100 : 0) + '%';
+    $('ppProm').style.width = (c.grand ? c.prompted/c.grand*100 : 0) + '%';
+  }
+
+  var colsCount = [
+    {key:'office', label:'Office'},
+    {key:'collected', label:'Collected'},
+    {key:'engaged', label:'Curr. engaged'},
+    {key:'total', label:'Total engaged'},
+    {key:'rate', label:'Collection rate'}
+  ];
+  var colsDollar = [
+    {key:'office', label:'Office'},
+    {key:'collectedAmt', label:'Collected'},
+    {key:'engagedAmt', label:'Curr. engaged'},
+    {key:'totalAmt', label:'Total engaged'},
+    {key:'rateAmt', label:'Collection rate'}
+  ];
+  var colsOut = [
+    {key:'office', label:'Office'},
+    {key:'avgPayment', label:'Avg payment'},
+    {key:'selfServe', label:'Self-serve share'},
+    {key:'medianDays', label:'Median days'},
+    {key:'medianTouches', label:'Median touches'}
+  ];
+  var swap = {collected:'collectedAmt',engaged:'engagedAmt',total:'totalAmt',rate:'rateAmt',collectedAmt:'collected',engagedAmt:'engaged',totalAmt:'total',rateAmt:'rate'};
+  function setMode(m){
+    if(state.mode===m) return;
+    state.mode = m;
+    var valid = (m==='out'?colsOut:m==='dollar'?colsDollar:colsCount).map(function(c){ return c.key; });
+    if(valid.indexOf(state.sort.key)===-1) state.sort.key = swap[state.sort.key] && valid.indexOf(swap[state.sort.key])!==-1 ? swap[state.sort.key] : 'office';
+    if(state.sort.key==='office') state.sort.dir = 1;
+    $('modeCount').setAttribute('aria-pressed', m==='count');
+    $('modeDollar').setAttribute('aria-pressed', m==='dollar');
+    $('modeOut').setAttribute('aria-pressed', m==='out');
+    renderOffices();
+  }
+  $('modeCount').addEventListener('click', function(){ setMode('count'); });
+  $('modeDollar').addEventListener('click', function(){ setMode('dollar'); });
+  $('modeOut').addEventListener('click', function(){ setMode('out'); });
+  function renderOffices(){
+    var d = state.data, rows = officeRows(d), s = state.sort, dollar = state.mode==='dollar', out = state.mode==='out';
+    var cols = out ? colsOut : dollar ? colsDollar : colsCount;
+    var fmtN = function(v){ return v==null ? '—' : (Math.round(v*10)/10).toLocaleString('en-US'); };
+    var f = dollar ? function(v){ return money0.format(v); } : function(v){ return int.format(v); };
+    rows.sort(function(a,b){
+      var x=a[s.key], y=b[s.key];
+      if(s.key==='office') return x.localeCompare(y)*s.dir;
+      if(x==null) x=-1; if(y==null) y=-1;
+      return (x-y)*s.dir || a.office.localeCompare(b.office);
+    });
+    var t = $('otable'); t.textContent='';
+    var thead = el('thead'), hr = el('tr');
+    cols.forEach(function(c){
+      var th = el('th',{scope:'col'}), b = el('button',{type:'button'}, c.label + (s.key===c.key ? (s.dir>0?' ↑':' ↓') : ''));
+      if(s.key===c.key) b.setAttribute('aria-sort', s.dir>0?'ascending':'descending');
+      b.addEventListener('click', function(){ if(s.key===c.key) s.dir*=-1; else { s.key=c.key; s.dir = c.key==='office'?1:-1; } renderOffices(); });
+      th.appendChild(b); hr.appendChild(th);
+    });
+    thead.appendChild(hr); t.appendChild(thead);
+    var body = el('tbody');
+    rows.forEach(function(r){
+      var tr = el('tr',{tabindex:'0'});
+      if(r.office===state.office) tr.className='sel';
+      tr.appendChild(el('td',null,r.office));
+      if(out){
+        tr.appendChild(el('td',null, r.avgPayment==null?'—':money.format(r.avgPayment)));
+        var ss = el('td',null,pct(r.selfServe)); var sb = el('span',{class:'minibar','aria-hidden':'true'}); sb.appendChild(el('i',{style:'width:'+((r.selfServe||0)*100)+'%'})); ss.appendChild(sb);
+        tr.appendChild(ss);
+        tr.appendChild(el('td',null,fmtN(r.medianDays)));
+        tr.appendChild(el('td',null,fmtN(r.medianTouches)));
+      } else {
+      var rr = dollar ? r.rateAmt : r.rate;
+      tr.appendChild(el('td',null,f(dollar ? r.collectedAmt : r.collected)));
+      tr.appendChild(el('td',null,f(dollar ? r.engagedAmt : r.engaged)));
+      tr.appendChild(el('td',null,f(dollar ? r.totalAmt : r.total)));
+      var rt = el('td',null,pct(rr)); var mb = el('span',{class:'minibar','aria-hidden':'true'}); mb.appendChild(el('i',{style:'width:'+((rr||0)*100)+'%'})); rt.appendChild(mb);
+      tr.appendChild(rt);
+      }
+      function pickRow(){ state.office = state.office===r.office ? '' : r.office; $('office').value = state.office; renderMetrics(); renderOffices(); window.scrollTo({top:0,behavior:'smooth'}); }
+      tr.addEventListener('click', pickRow);
+      tr.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pickRow(); } });
+      body.appendChild(tr);
+    });
+    t.appendChild(body);
+    var all = compute(d,''), foot = el('tfoot'), fr = el('tr');
+    (out ? ['All offices', all.avgPayment==null?'—':money.format(all.avgPayment), pct(all.selfServe), fmtN(all.medianDays), fmtN(all.medianTouches)]
+     : dollar ? ['All offices', f(all.collectedAmt), f(all.engagedAmt), f(all.totalAmt), pct(all.rateAmt)]
+            : ['All offices', f(all.collected), f(all.engaged), f(all.total), pct(all.rate)]).forEach(function(v){ fr.appendChild(el('td',null,v)); });
+    foot.appendChild(fr); t.appendChild(foot);
+    var noPay = rows.filter(function(r){ return r.collected===0; }).map(function(r){ return r.office; });
+    $('officeHint').textContent = noPay.length ? (noPay.length===1?'1 office has':'' + noPay.length + ' offices have') + ' AR accounts but no collected payments in this period: ' + noPay.join(', ') + '.' : '';
+  }
+
+  // ---------- copy ----------
+  function toast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(function(){ t.classList.remove('show'); },2200); }
+  $('copy').addEventListener('click', function(){
+    var c = state.current, d = state.data, lines = [];
+    var r2 = function(v){ return (Math.round(v*100)/100).toFixed(2); };
+    lines.push((d.name||'') + (state.office ? ' – ' + state.office : '') + '\t');
+    lines.push('');
+    lines.push('Row Labels\tSum of Amount');
+    c.buckets.forEach(function(b){ lines.push(b.label + '\t' + r2(b.amount)); });
+    lines.push('Grand Total\t' + r2(c.grand));
+    lines.push(''); lines.push(''); lines.push('');
+    lines.push('Collected\t' + c.collected);
+    lines.push('Curr. Eng.\t' + c.engaged);
+    lines.push('Total Engaged\t' + c.total);
+    lines.push('Collection Rate\t' + (c.rate==null?'':(c.rate*100).toFixed(1)+'%'));
+    lines.push('');
+    lines.push('Collected $\t' + r2(c.collectedAmt));
+    lines.push('Curr. Eng. $\t' + r2(c.engagedAmt));
+    lines.push('Total Engaged $\t' + r2(c.totalAmt));
+    lines.push('Collection Rate $\t' + (c.rateAmt==null?'':(c.rateAmt*100).toFixed(1)+'%'));
+    var pc0 = function(v){ return v==null?'':(v*100).toFixed(1)+'%'; };
+    lines.push('');
+    lines.push('Average Payment\t' + (c.avgPayment==null?'':r2(c.avgPayment)));
+    lines.push('Self-Serve Share $\t' + pc0(c.selfServe));
+    lines.push('Self-Serve Share (count)\t' + pc0(c.selfServeCount));
+    lines.push('Median Days in Flow\t' + (c.medianDays==null?'':c.medianDays));
+    lines.push('Median Touches\t' + (c.medianTouches==null?'':c.medianTouches));
+    lines.push('');
+    lines.push('DPD Bucket\tCollected $\tEngaged Balance $\tCollection Rate $');
+    c.buckets.forEach(function(b){ lines.push([b.label, r2(b.amount), r2(b.engagedAmt), pc0(b.rate)].join('\t')); });
+    lines.push('');
+    lines.push('Days in Flow\tPayments');
+    c.flowBins.forEach(function(b){ lines.push(b.label + '\t' + b.count); });
+    lines.push('');
+    lines.push('Channel\tAvg Touches\tReached');
+    c.channels.forEach(function(x){ lines.push([x.label, x.avg==null?'':x.avg.toFixed(2), pc0(x.reach)].join('\t')); });
+    if(d.multi && !state.office){
+      var pc = function(v){ return v==null?'':(v*100).toFixed(1)+'%'; };
+      lines.push(''); lines.push('Office\tCollected\tCurr. Eng.\tTotal Engaged\tCollection Rate\tCollected $\tCurr. Eng. $\tTotal Engaged $\tCollection Rate $\tAvg Payment\tSelf-Serve Share $\tMedian Days\tMedian Touches');
+      officeRows(d).forEach(function(r){ lines.push([r.office,r.collected,r.engaged,r.total,pc(r.rate),r2(r.collectedAmt),r2(r.engagedAmt),r2(r.totalAmt),pc(r.rateAmt),r.avgPayment==null?'':r2(r.avgPayment),pc(r.selfServe),r.medianDays==null?'':r.medianDays,r.medianTouches==null?'':r.medianTouches].join('\t')); });
+    }
+    var text = lines.join('\n');
+    function fallback(){
+      var ta = el('textarea'); ta.value = text; ta.style.cssText='position:fixed;opacity:0;top:0;left:0'; document.body.appendChild(ta); ta.select();
+      var ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+      document.body.removeChild(ta);
+      toast(ok ? 'Copied. Paste into Excel.' : 'Your browser blocked copying here.');
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ toast('Copied. Paste into Excel.'); }, fallback);
+    } else fallback();
+  });
+})();
+</script>
+</body>
+</html>
